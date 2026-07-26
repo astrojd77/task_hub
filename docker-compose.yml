@@ -1,0 +1,48 @@
+# Dev databases only. The app itself runs on the host (uvicorn / vite).
+#
+#   docker compose up -d db          # Postgres dev database
+#   docker compose --profile oracle up -d oracle
+#
+# The Oracle service is behind a profile because the image is large and is only
+# needed to verify migrations against the prod dialect before a release. It is
+# not part of the everyday dev loop.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: taskhub-postgres
+    environment:
+      POSTGRES_USER: taskhub
+      POSTGRES_PASSWORD: taskhub
+      POSTGRES_DB: taskhub
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskhub -d taskhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  oracle:
+    profiles: ["oracle"]
+    image: gvenzl/oracle-free:23-slim
+    container_name: taskhub-oracle
+    environment:
+      ORACLE_PASSWORD: taskhub
+      APP_USER: taskhub
+      APP_USER_PASSWORD: taskhub
+    ports:
+      - "1521:1521"
+    volumes:
+      - oradata:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+
+volumes:
+  pgdata:
+  oradata:

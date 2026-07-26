@@ -1,23 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client'
-import type { Health, Providers, Task } from './api/types'
+import type { EnumCatalog, Health, Providers, Task } from './api/types'
+import { ImportView } from './import/ImportView'
 
-/**
- * Phase 0 shell. The tab set is the eventual product surface — Import (1),
- * Tasks (1), Calendar (2), Watch (3) — with only Tasks live so far.
- */
 const TABS = ['Import', 'Tasks', 'Calendar', 'Watch'] as const
 type Tab = (typeof TABS)[number]
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('Tasks')
+  const [tab, setTab] = useState<Tab>('Import')
   const [health, setHealth] = useState<Health | null>(null)
   const [providers, setProviders] = useState<Providers | null>(null)
+  const [enums, setEnums] = useState<EnumCatalog | null>(null)
+  // Bumped after a commit so the task list refetches.
+  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
     api.health().then(setHealth).catch(() => setHealth(null))
     api.providers().then(setProviders).catch(() => setProviders(null))
+    api.enums().then(setEnums).catch(() => setEnums(null))
   }, [])
+
+  const onCommitted = useCallback(() => setRevision((r) => r + 1), [])
 
   return (
     <div className="app">
@@ -42,25 +45,30 @@ export default function App() {
         ))}
       </nav>
 
-      {tab === 'Tasks' ? (
-        <TasksView />
-      ) : (
-        <Placeholder tab={tab} providers={providers} />
+      {tab === 'Import' && (
+        <ImportView providers={providers} enums={enums} onCommitted={onCommitted} />
+      )}
+      {tab === 'Tasks' && <TasksView revision={revision} />}
+      {(tab === 'Calendar' || tab === 'Watch') && (
+        <div className="panel empty">
+          {tab} lands in phase {tab === 'Calendar' ? 2 : 3}.
+        </div>
       )}
     </div>
   )
 }
 
-function TasksView() {
+function TasksView({ revision }: { revision: number }) {
   const [tasks, setTasks] = useState<Task[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    setTasks(null)
     api
       .listTasks()
       .then(setTasks)
       .catch((e) => setError(String(e)))
-  }, [])
+  }, [revision])
 
   if (error) return <div className="panel error">{error}</div>
   if (!tasks) return <div className="panel empty">Loading…</div>
@@ -83,6 +91,7 @@ function TasksView() {
             <th>Impact</th>
             <th>Due</th>
             <th>Project</th>
+            <th>Assignee</th>
             <th>Source</th>
           </tr>
         </thead>
@@ -98,6 +107,7 @@ function TasksView() {
               <td>{t.impact_size ?? '—'}</td>
               <td>{t.due_date ?? '—'}</td>
               <td>{t.project ?? '—'}</td>
+              <td>{t.assignee ?? '—'}</td>
               <td>
                 <span className="pill">{t.source_provider}</span>
               </td>
@@ -105,30 +115,6 @@ function TasksView() {
           ))}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-function Placeholder({
-  tab,
-  providers,
-}: {
-  tab: Tab
-  providers: Providers | null
-}) {
-  const phase = { Import: 1, Calendar: 2, Watch: 3 }[
-    tab as 'Import' | 'Calendar' | 'Watch'
-  ]
-  return (
-    <div className="panel">
-      <p className="empty">{tab} lands in phase {phase}.</p>
-      {providers && (
-        <p className="env">
-          Registered sources: {providers.sources.map((s) => s.id).join(', ') || 'none yet'}
-          {' · '}
-          destinations: {providers.destinations.map((d) => d.id).join(', ')}
-        </p>
-      )}
     </div>
   )
 }

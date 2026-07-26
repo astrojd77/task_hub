@@ -41,6 +41,23 @@ export interface DraftTask {
   source_ref: string
   raw_payload: Record<string, unknown> | null
   warnings: string[]
+  /** Set when this draft matches an already-committed task. */
+  existing_task_id: string | null
+}
+
+export interface DraftBatch {
+  source_provider: string
+  drafts: DraftTask[]
+  warnings: string[]
+  /** Adapter-specific. CSV puts its detected columns and mapping here. */
+  meta: {
+    filename?: string
+    columns?: string[]
+    row_count?: number
+    mappable_fields?: string[]
+    mapping?: Record<string, string>
+    suggested_mapping?: Record<string, string>
+  }
 }
 
 export interface CommitResult {

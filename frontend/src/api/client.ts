@@ -1,5 +1,6 @@
 import type {
   CommitResult,
+  DraftBatch,
   DraftTask,
   EnumCatalog,
   Health,
@@ -55,7 +56,44 @@ function toQueryString(query: TaskQuery = {}): string {
   return s ? `?${s}` : ''
 }
 
+/**
+ * Ask a source to parse its input into drafts. Nothing is persisted by this
+ * call — committing is a separate, explicit step.
+ *
+ * Always multipart, so file-based sources (csv, email) and config-only ones
+ * (jira) share a single request shape.
+ */
+async function buildDrafts(
+  sourceId: string,
+  file: File | null,
+  config: Record<string, unknown> = {},
+): Promise<DraftBatch> {
+  const form = new FormData()
+  if (file) form.append('file', file)
+  form.append('config', JSON.stringify(config))
+
+  const res = await fetch(`/api/sources/${sourceId}/drafts`, {
+    method: 'POST',
+    body: form, // no Content-Type: the browser sets the multipart boundary
+  })
+  if (!res.ok) {
+    let detail: unknown
+    try {
+      detail = (await res.json())?.detail
+    } catch {
+      detail = await res.text()
+    }
+    throw new ApiError(
+      typeof detail === 'string' ? detail : `Import failed (${res.status})`,
+      res.status,
+      detail,
+    )
+  }
+  return res.json() as Promise<DraftBatch>
+}
+
 export const api = {
+  buildDrafts,
   health: () => request<Health>('/health'),
   enums: () => request<EnumCatalog>('/enums'),
   providers: () => request<Providers>('/providers'),

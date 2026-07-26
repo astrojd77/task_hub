@@ -24,7 +24,11 @@ from app.core.enums import Criticality, ImpactSize, Priority, TaskStatus
 class DraftTask(BaseModel):
     """An unvalidated, uncommitted candidate task produced by a source."""
 
-    model_config = ConfigDict(extra="ignore")
+    # validate_assignment matters here: drafts are *mutated* after construction
+    # (see services/drafts.enrich_with_existing, which copies plain strings off
+    # an ORM row). Without it those assignments would slip past the enum types
+    # and only surface as a serialisation warning.
+    model_config = ConfigDict(extra="ignore", validate_assignment=True)
 
     title: str = ""
     description: str | None = None
@@ -45,6 +49,10 @@ class DraftTask(BaseModel):
 
     #: Non-fatal notes from the adapter, surfaced next to the row in review.
     warnings: list[str] = Field(default_factory=list)
+    #: Set when this draft matches a task that was already committed, so the
+    #: review UI can show "you have seen this before" instead of implying it is
+    #: new. Ignored on commit — the upsert keys off source_provider/source_ref.
+    existing_task_id: str | None = None
 
 
 class TaskCommitIn(DraftTask):
@@ -124,3 +132,6 @@ class DraftBatch(BaseModel):
     source_provider: str
     drafts: list[DraftTask]
     warnings: list[str] = Field(default_factory=list)
+    #: Whatever the adapter's optional ``describe()`` returned — CSV puts its
+    #: detected columns and chosen mapping here. Opaque to core.
+    meta: dict = Field(default_factory=dict)

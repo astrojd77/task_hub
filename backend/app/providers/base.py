@@ -14,6 +14,19 @@ from app.schemas.task import DraftTask, TaskOut
 
 
 @dataclass(frozen=True)
+class UploadedFile:
+    """A file handed to a file-based source (CSV, email).
+
+    The API layer puts this under ``config["file"]`` so that
+    ``SourceProvider.fetch(config)`` stays a single uniform entry point whether
+    a source needs an upload (csv, email) or only credentials (jira).
+    """
+
+    filename: str
+    content: bytes
+
+
+@dataclass(frozen=True)
 class RawItem:
     """One unit of work as the source handed it over, before normalisation."""
 
@@ -63,6 +76,16 @@ class SourceProvider(Protocol):
     def to_draft(self, raw: RawItem) -> DraftTask:
         """Normalise one raw item into a canonical draft. Sets ``source_ref``."""
         ...
+
+    # Optional extension point, probed with getattr — a source that needs to
+    # tell the review UI something about the batch as a whole (CSV: which
+    # columns it found and how it mapped them; Jira: the query it ran) may
+    # implement:
+    #
+    #     def describe(self, config: dict) -> dict: ...
+    #
+    # Whatever it returns lands in ``DraftBatch.meta``. Sources that have
+    # nothing to add simply omit the method; the route does not care.
 
 
 @runtime_checkable

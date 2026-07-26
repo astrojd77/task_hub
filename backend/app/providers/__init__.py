@@ -11,4 +11,7 @@ changes.
 from app.providers.destinations import local as _local  # noqa: F401
 from app.providers.registry import registry
 
+# Sources
+from app.providers.sources import csv_source as _csv  # noqa: F401
+
 __all__ = ["registry"]

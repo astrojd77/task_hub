@@ -122,3 +122,168 @@ table.tasks th {
 .error {
   color: var(--danger);
 }
+
+/* ---------------------------------------------------------------- layout */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ------------------------------------------------------------- controls */
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  background: var(--border);
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+button.linkish {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.source-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------- dropzone */
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: #eef3fd;
+}
+
+.dropzone p {
+  margin: 0 0 4px;
+}
+
+/* -------------------------------------------------------------- mapping */
+
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 16px;
+}
+
+.mapping-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------------- review */
+
+.review-scroll {
+  overflow-x: auto;
+}
+
+table.review input,
+table.review select,
+.mapping-grid select {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+  min-width: 90px;
+}
+
+table.review .col-title {
+  min-width: 240px;
+}
+
+table.review .col-check {
+  width: 32px;
+}
+
+table.review .col-check input {
+  width: auto;
+  min-width: 0;
+}
+
+table.review input.invalid {
+  border-color: var(--danger);
+}
+
+table.review tr.row-blocked {
+  background: #fdf3f2;
+}
+
+.row-notes {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.row-notes .warn {
+  color: var(--warn);
+}
+
+.row-notes .error {
+  color: var(--danger);
+}
+
+.ok {
+  color: var(--ok);
+}

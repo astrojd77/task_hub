@@ -1,0 +1,48 @@
+# Build the image inside the cluster, for environments where pushing from CI
+# to an external registry is not an option.
+#
+#   oc apply -k deploy/openshift/incluster-build
+#   oc start-build task-hub --from-dir=. --follow
+#
+# `--from-dir=.` uploads the working tree (minus .dockerignore) as the build
+# context, so the Dockerfile's frontend stage runs in-cluster too — no local
+# Node or Docker required.
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: task-hub
+  labels:
+    app.kubernetes.io/name: task-hub
+spec:
+  lookupPolicy:
+    # Lets the Deployment's plain `task-hub:latest` reference resolve to this
+    # ImageStream without a fully qualified registry path.
+    local: true
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: task-hub
+  labels:
+    app.kubernetes.io/name: task-hub
+spec:
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: task-hub:latest
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  successfulBuildsHistoryLimit: 3
+  failedBuildsHistoryLimit: 3

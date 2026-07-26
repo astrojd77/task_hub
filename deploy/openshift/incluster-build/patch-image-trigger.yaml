@@ -1,0 +1,18 @@
+# Ties the Deployment to the ImageStream: when a build pushes a new
+# task-hub:latest, OpenShift rewrites the container's image field to the
+# resolved digest and rolls out. Without this the Deployment would keep running
+# whatever digest it first resolved.
+#
+# Note this is a *rollout* trigger only — it does not re-run migrations. Run
+# the migration Job yourself when a release includes a schema change.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-hub
+  annotations:
+    image.openshift.io/triggers: |
+      [{
+        "from": {"kind": "ImageStreamTag", "name": "task-hub:latest"},
+        "fieldPath": "spec.template.spec.containers[?(@.name==\"task-hub\")].image",
+        "pause": "false"
+      }]

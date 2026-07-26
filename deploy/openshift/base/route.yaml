@@ -1,0 +1,25 @@
+# External access. OpenShift fills in a hostname from the cluster's apps domain
+# when `host` is omitted — set it explicitly if you need a specific name.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: task-hub
+  labels:
+    app.kubernetes.io/name: task-hub
+  annotations:
+    # The router's 30s default is too tight for a large CSV upload plus parse;
+    # a 5000-row import is a single request that has to finish inside this.
+    haproxy.router.openshift.io/timeout: 120s
+spec:
+  # host: task-hub.apps.your-cluster.example.com
+  to:
+    kind: Service
+    name: task-hub
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    # Edge termination: the router terminates TLS with the cluster's
+    # wildcard certificate and talks plain HTTP to the pod.
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

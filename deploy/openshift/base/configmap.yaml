@@ -1,0 +1,21 @@
+# Non-secret configuration. Anything with a credential in it belongs in the
+# Secret instead — DATABASE_URL in particular.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: task-hub-config
+  labels:
+    app.kubernetes.io/name: task-hub
+data:
+  ENVIRONMENT: production
+  DEBUG: "false"
+  DB_ECHO: "false"
+
+  # The image serves the SPA and the API from one origin, so there is no
+  # cross-origin request to allow. Leave empty unless something else needs in.
+  CORS_ORIGINS: ""
+
+  # Which adapters are live. Enabling one is config, not code.
+  # Trim this to what the environment actually has credentials for.
+  ENABLED_SOURCES: "csv,jira,email"
+  ENABLED_DESTINATIONS: "local,jira"

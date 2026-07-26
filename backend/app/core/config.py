@@ -42,6 +42,12 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+    #: Directory holding the built frontend. When it exists the API also serves
+    #: the SPA, which is how the container image ships: one process, one port,
+    #: one Route, and no CORS in production. Absent in local dev, where Vite
+    #: serves the frontend and proxies /api.
+    static_dir: str = "static"
+
     # Which adapters are live. Enabling a provider is config, never code.
     enabled_sources: list[str] = ["csv", "jira", "email"]
     enabled_destinations: list[str] = ["local", "jira"]

@@ -1,0 +1,54 @@
+# Schema migrations, run as a one-shot Job.
+#
+# Deliberately NOT an initContainer: every replica runs its initContainers, so
+# scaling past one replica would race two `alembic upgrade head` runs against
+# the same database. A Job runs exactly once per release.
+#
+# Jobs are immutable, so re-running means deleting first:
+#
+#   oc delete job/task-hub-migrate --ignore-not-found
+#   oc apply -k deploy/openshift/base
+#   oc wait --for=condition=complete job/task-hub-migrate --timeout=300s
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: task-hub-migrate
+  labels:
+    app.kubernetes.io/name: task-hub
+    app.kubernetes.io/component: migration
+spec:
+  backoffLimit: 2
+  # Tidy up after itself, but leave long enough to read the logs.
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: task-hub
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: task-hub:latest
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: task-hub-config
+            - secretRef:
+                name: task-hub-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

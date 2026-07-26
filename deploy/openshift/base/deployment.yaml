@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-hub
+  labels:
+    app.kubernetes.io/name: task-hub
+    app.kubernetes.io/component: web
+spec:
+  # Single user to start. The app is stateless — all state is in the database —
+  # so this scales horizontally when needed. Migrations stay a separate Job so
+  # extra replicas can never race each other applying schema changes.
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: task-hub
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: task-hub
+        app.kubernetes.io/component: web
+    spec:
+      # No runAsUser / fsGroup anywhere in this file: OpenShift assigns a UID
+      # from the namespace's range, and hardcoding one is what makes images
+      # fail under the restricted-v2 SCC. The image is built to cope (group 0
+      # ownership, group-writable).
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: task-hub
+          image: task-hub:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: task-hub-config
+            - secretRef:
+                name: task-hub-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            # readOnlyRootFilesystem: true also works — the app writes nothing
+            # to disk — but needs an emptyDir at /tmp. Left off by default so a
+            # first deploy does not fail on a surprise temp-file write.
+          # Startup probe first: an Oracle connection over a corporate network
+          # can take a while, and without this the liveness probe would kill
+          # the pod before it ever finished starting.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness hits the database. A pod that cannot reach Oracle drops
+          # out of the Service instead of being restarted in a loop.
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi

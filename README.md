@@ -20,12 +20,15 @@ Two properties define the architecture:
 | Phase | Scope | State |
 | ----- | ----- | ----- |
 | 0 | Scaffold, canonical model, registry, commit pipeline | ✅ done |
-| 1 | CSV source + review table + local destination | ⬜ next |
-| 2 | Calendar view | ⬜ |
+| 1 | CSV source + review table + local destination | ✅ done |
+| 2 | Calendar view | ⬜ next |
 | 3 | Watch / notifications view | ⬜ |
 | 4 | Jira source (targeted) + review modal | ⬜ |
 | 5 | Email (`.msg` / `.eml`) drop source | ⬜ |
 | 6 | Destination routing + Jira push | ⬜ |
+
+Deployment to OpenShift is available now — see
+[`deploy/openshift/`](deploy/openshift/README.md).
 
 ---
 
@@ -71,6 +74,30 @@ DATABASE_URL=postgresql+psycopg://taskhub:taskhub@localhost:5432/taskhub \
 ```bash
 cd backend && .venv/bin/python -m pytest
 ```
+
+### Try the import
+
+`examples/sample_tasks.csv` exercises the interesting cases — mixed native
+vocabularies (`P1`, `Sev 1`, `XL`), and one row with no criticality, impact or
+due date so the review screen has something to ask you for.
+
+---
+
+## Deployment
+
+The container image serves the API *and* the built SPA from one origin, so
+production is a single Deployment with no CORS configuration.
+
+```bash
+docker build -t task-hub .
+docker run -p 8080:8080 -e DATABASE_URL=... task-hub
+```
+
+For OpenShift — including the arbitrary-UID constraints, the migration Job and
+both build paths — see [`deploy/openshift/`](deploy/openshift/README.md).
+
+In dev the static directory does not exist, so the API serves only `/api` and
+Vite serves the frontend. Same code, no build-time switch.
 
 ---
 
@@ -207,16 +234,19 @@ committed.
 | `CORS_ORIGINS` | comma-separated allowed origins |
 | `ENABLED_SOURCES` | which inbound adapters are live |
 | `ENABLED_DESTINATIONS` | which outbound adapters are live (`local` always on) |
+| `STATIC_DIR` | built SPA to serve; when absent the API serves only `/api` |
 
 ## API
 
 | Method | Path | Purpose |
 | ------ | ---- | ------- |
 | GET | `/api/health` | liveness + dialect (never credentials) |
+| GET | `/api/ready` | readiness — runs `SELECT 1` against the database |
 | GET | `/api/enums` | canonical scales, so the UI hardcodes none |
 | GET | `/api/providers` | registered + enabled adapters and their capabilities |
 | GET | `/api/tasks` | committed tasks, with the shared filter facets |
 | GET | `/api/tasks/facets` | distinct values behind the filter dropdowns |
 | GET | `/api/tasks/{id}` | one task |
 | DELETE | `/api/tasks/{id}` | remove a task |
+| POST | `/api/sources/{id}/drafts` | parse a source's input into drafts — persists nothing |
 | POST | `/api/commit` | **the only door into the task store** |

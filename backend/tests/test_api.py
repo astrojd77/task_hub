@@ -92,3 +92,19 @@ def test_task_detail_and_delete(client):
     assert client.get(f"/api/tasks/{task_id}").json()["title"] == "A"
     assert client.delete(f"/api/tasks/{task_id}").status_code == 204
     assert client.get(f"/api/tasks/{task_id}").status_code == 404
+
+
+def test_ready_checks_the_database(client):
+    assert client.get("/api/ready").json() == {"status": "ready"}
+
+
+def test_spa_is_not_mounted_without_a_build(client):
+    """In dev Vite serves the frontend; the API must not invent an index.html."""
+    from app.main import serving_spa
+
+    assert serving_spa is False
+
+
+def test_unknown_api_path_404s_as_an_api_path(client):
+    res = client.get("/api/nonexistent")
+    assert res.status_code == 404

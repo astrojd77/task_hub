@@ -54,9 +54,7 @@ async def build_drafts(
                 status_code=413,
                 detail=f"file is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB",
             )
-        parsed_config["file"] = UploadedFile(
-            filename=file.filename or "upload", content=content
-        )
+        parsed_config["file"] = UploadedFile(filename=file.filename or "upload", content=content)
 
     try:
         return build_batch(db, provider, parsed_config)

@@ -43,6 +43,31 @@ services:
       timeout: 10s
       retries: 40
 
+  # Migrations. Prefer ./scripts/migrate.sh, which derives the JDBC URL,
+  # credentials and dialect folder from DATABASE_URL; this service is the
+  # fixed-Postgres shortcut.
+  #
+  #   docker compose --profile migrate run --rm flyway migrate
+  #   docker compose --profile migrate run --rm flyway info
+  #
+  # Note there is no baselineOnMigrate here: on a non-empty schema with no
+  # history table Flyway would mark V1 as applied *without running it* and
+  # report success, leaving a database with no tables.
+  flyway:
+    profiles: ["migrate"]
+    image: flyway/flyway:11-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/db/migration/postgresql:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:postgresql://db:5432/taskhub
+      FLYWAY_USER: taskhub
+      FLYWAY_PASSWORD: taskhub
+      FLYWAY_CONNECT_RETRIES: "10"
+    command: ["migrate"]
+
 volumes:
   pgdata:
   oradata:

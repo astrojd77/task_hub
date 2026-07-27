@@ -18,10 +18,14 @@ class FakeClient:
         self.created: list[dict] = []
         self.updated: list[tuple[str, dict]] = []
         self.transitioned: list[tuple[str, str]] = []
-        self._transitions = transitions if transitions is not None else [
-            {"id": "11", "name": "In Progress", "to": {"name": "In Progress"}},
-            {"id": "21", "name": "Done", "to": {"name": "Done"}},
-        ]
+        self._transitions = (
+            transitions
+            if transitions is not None
+            else [
+                {"id": "11", "name": "In Progress", "to": {"name": "In Progress"}},
+                {"id": "21", "name": "Done", "to": {"name": "Done"}},
+            ]
+        )
 
     def create_issue(self, fields):
         self.created.append(fields)

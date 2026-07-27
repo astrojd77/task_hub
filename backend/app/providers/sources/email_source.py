@@ -261,9 +261,7 @@ def _parse_msg(content: bytes, filename: str | None) -> dict:
             "to": field("to"),
             "cc": field("cc"),
             "sent": (
-                sent.isoformat()
-                if hasattr(sent, "isoformat")
-                else (str(sent) if sent else None)
+                sent.isoformat() if hasattr(sent, "isoformat") else (str(sent) if sent else None)
             ),
             "message_id": message_id or None,
             "format": "msg",

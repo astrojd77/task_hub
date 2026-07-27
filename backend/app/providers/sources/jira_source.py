@@ -174,7 +174,7 @@ class JiraSource:
                 "issue_key": {"type": "string", "example": "OPS-123"},
                 "jql": {
                     "type": "string",
-                    "example": 'project = OPS AND status != Done ORDER BY duedate',
+                    "example": "project = OPS AND status != Done ORDER BY duedate",
                 },
                 "limit": {"type": "integer", "default": settings.jira_max_results},
             },
@@ -185,9 +185,7 @@ class JiraSource:
 
     def _extra_fields(self) -> tuple[str, ...]:
         settings = get_settings()
-        return tuple(
-            f for f in (settings.jira_criticality_field, settings.jira_impact_field) if f
-        )
+        return tuple(f for f in (settings.jira_criticality_field, settings.jira_impact_field) if f)
 
     def describe(self, config: dict[str, Any]) -> dict[str, Any]:
         settings = get_settings()
@@ -220,9 +218,7 @@ class JiraSource:
             issues = self.client.search(jql, extra, limit=limit)
 
         return [
-            RawItem(source_ref=issue["key"], payload=issue)
-            for issue in issues
-            if issue.get("key")
+            RawItem(source_ref=issue["key"], payload=issue) for issue in issues if issue.get("key")
         ]
 
     def to_draft(self, raw: RawItem) -> DraftTask:

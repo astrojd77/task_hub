@@ -164,8 +164,8 @@ def test_pushing_twice_updates_rather_than_creating_again(db, recorder):
     outcome = push_task(db, task)
 
     assert outcome.action == "updated"
-    assert recorder.pushed == [task.id]        # created once
-    assert recorder.updated == ["REC-1"]       # updated once
+    assert recorder.pushed == [task.id]  # created once
+    assert recorder.updated == ["REC-1"]  # updated once
     assert task.external_refs == {"recorder": "REC-1"}
 
 

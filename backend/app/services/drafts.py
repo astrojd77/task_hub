@@ -99,8 +99,6 @@ def enrich_with_existing(db: Session, drafts: list[DraftTask]) -> None:
             setattr(draft, field, getattr(task, field))
 
         if restored:
-            draft.warnings.append(
-                "already imported — kept your reviewed " + ", ".join(restored)
-            )
+            draft.warnings.append("already imported — kept your reviewed " + ", ".join(restored))
         else:
             draft.warnings.append("already imported — committing will update the existing task")

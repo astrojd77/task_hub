@@ -43,9 +43,12 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
 cp ../.env.example ../.env        # then edit if you want Postgres/Oracle
-.venv/bin/alembic upgrade head
-.venv/bin/uvicorn app.main:app --reload --port 8000
+
+cd .. && ./scripts/migrate.sh     # Flyway; dialect derived from DATABASE_URL
+cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
+
+Flyway runs from its official container image, so no local Java is needed.
 
 API docs: <http://127.0.0.1:8000/docs>
 
@@ -66,8 +69,7 @@ SQLite is the zero-setup default. For Postgres:
 
 ```bash
 docker compose up -d db
-DATABASE_URL=postgresql+psycopg://taskhub:taskhub@localhost:5432/taskhub \
-  backend/.venv/bin/alembic upgrade head
+DATABASE_URL=postgresql+psycopg://taskhub:taskhub@localhost:5432/taskhub ./scripts/migrate.sh
 ```
 
 ### Tests
@@ -75,6 +77,8 @@ DATABASE_URL=postgresql+psycopg://taskhub:taskhub@localhost:5432/taskhub \
 ```bash
 cd backend && .venv/bin/python -m pytest
 ```
+
+Full setup, configuration and troubleshooting: [`docs/SETUP.md`](docs/SETUP.md).
 
 ### Try the import
 
@@ -245,26 +249,34 @@ columns. Every field the app filters on is a real column.
 
 All timestamps are naive UTC.
 
-### Verifying against Oracle
+### Migrations
 
-Rendering the migration for the Oracle dialect needs no database:
+Flyway, with hand-written SQL per dialect:
 
-```bash
-cd backend
-DATABASE_URL="oracle+oracledb://u:p@localhost:1521/?service_name=X" \
-  .venv/bin/alembic upgrade head --sql
+```
+backend/db/migration/{postgresql,oracle,sqlite}/V1__baseline_schema.sql
 ```
 
-For a real run against Oracle Free:
+`./scripts/migrate.sh` derives the dialect, JDBC URL and credentials from
+`DATABASE_URL`, so there is one place a database is configured.
+
+There is no autogenerate, so a schema change means editing all three files.
+`tests/test_schema_parity.py` is the safety net: it compares a Flyway-migrated
+database against the SQLAlchemy metadata and fails CI on drift.
+
+```bash
+./scripts/migrate.sh
+cd backend
+PARITY_DATABASE_URL="$DATABASE_URL" .venv/bin/python -m pytest tests/test_schema_parity.py
+```
+
+Verify against real Oracle before a release — rendering DDL is not running it:
 
 ```bash
 docker compose --profile oracle up -d oracle   # large image, slow first boot
 DATABASE_URL="oracle+oracledb://taskhub:taskhub@localhost:1521/?service_name=FREEPDB1" \
-  backend/.venv/bin/alembic upgrade head
+  ./scripts/migrate.sh
 ```
-
-Migrations must be applied against an Oracle target before a release is
-considered prod-ready — SQLite-only testing hides Oracle DDL issues.
 
 ---
 

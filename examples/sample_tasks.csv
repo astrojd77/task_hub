@@ -1,6 +1,6 @@
 Key,Summary,Details,State,Urgency,Severity,Impact,Due Date,Owner,Workstream,Tags
-OPS-101,Rotate expiring signing certificate,Prod cert expires end of month,In Progress,P1,Sev 1,XL,2026-08-01,ana,Platform,security;compliance
-OPS-102,Upgrade node pool to 1.31,Rolling upgrade across three clusters,Blocked,high,medium,L,2026-08-14,raj,Platform,infra
-OPS-103,Decommission legacy report job,Nightly job nobody reads,To Do,low,low,S,2026-09-30,ana,Data,cleanup
-OPS-104,Add audit logging to billing API,Required for SOC2 evidence,To Do,P2,Sev 2,M,2026-08-22,mei,Billing,compliance
-OPS-105,Fix flaky checkout integration test,,In Progress,medium,,,,,Billing,
+OPS-101,Rotate expiring signing certificate,Prod signing cert expires and will break service-to-service auth,In Progress,P1,Sev 1,XL,2026-07-20,ana,Platform,security;compliance
+OPS-102,Upgrade node pool to 1.31,Rolling upgrade across three clusters; vendor support ends soon,Blocked,high,medium,L,2026-07-28,raj,Platform,infra
+OPS-103,Decommission legacy nightly report,Job nobody reads and it costs a few hundred a month,To Do,low,low,S,2026-10-30,ana,Data,cleanup
+OPS-104,Add audit logging to billing API,Required for SOC2 evidence collection,To Do,P2,Sev 2,M,2026-08-01,mei,Billing,compliance
+OPS-105,Fix flaky checkout integration test,Fails roughly one run in five and blocks releases,In Progress,medium,,,,,Billing,

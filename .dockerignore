@@ -19,5 +19,9 @@
 backend/tests
 examples
 deploy
+scripts
+.github
+docs
 README.md
+CONTRIBUTING.md
 docker-compose.yml

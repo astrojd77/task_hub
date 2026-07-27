@@ -200,11 +200,7 @@ def read_csv(content: bytes) -> tuple[list[str], list[dict[str, str]]]:
     rows: list[dict[str, str]] = []
     for row in reader:
         # DictReader puts surplus cells under a None key; drop it.
-        clean = {
-            (k.strip() if k else k): v
-            for k, v in row.items()
-            if k is not None and k.strip()
-        }
+        clean = {(k.strip() if k else k): v for k, v in row.items() if k is not None and k.strip()}
         if any(str(v).strip() for v in clean.values() if v is not None):
             rows.append(clean)
         if len(rows) > _MAX_ROWS:

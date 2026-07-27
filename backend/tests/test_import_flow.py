@@ -91,7 +91,7 @@ def test_source_supplied_fields_win_over_the_previous_import(client):
     reimported = post_csv(client, upstream_changed).json()["drafts"][0]
 
     assert reimported["existing_task_id"] is not None
-    assert reimported["status"] == "blocked"     # source wins on what it knows
+    assert reimported["status"] == "blocked"  # source wins on what it knows
     assert reimported["criticality"] == "critical"  # review work is preserved
 
 

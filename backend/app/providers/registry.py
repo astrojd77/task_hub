@@ -66,11 +66,7 @@ class ProviderRegistry:
     # -- listing ---------------------------------------------------------
 
     def sources(self, *, enabled_only: bool = True) -> list[SourceProvider]:
-        return [
-            p
-            for p in self._sources.values()
-            if not enabled_only or self.source_enabled(p.id)
-        ]
+        return [p for p in self._sources.values() if not enabled_only or self.source_enabled(p.id)]
 
     def destinations(self, *, enabled_only: bool = True) -> list[DestinationProvider]:
         return [

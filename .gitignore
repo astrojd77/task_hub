@@ -1,27 +1,126 @@
-# secrets
+# ---------------------------------------------------------------- secrets
+# Never commit a real environment file. .env.example is the template and is
+# tracked deliberately.
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+credentials.json
+secrets.yaml
+secret.yaml
+# ...but the OpenShift reference template is documentation, not a secret.
+!deploy/openshift/base/secret.example.yaml
 
-# python
+# ---------------------------------------------------------------- python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
 .venv/
 venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+sdist/
+wheels/
 *.egg-info/
+*.egg
+.installed.cfg
+MANIFEST
+
+# python tooling caches
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.dmypy.json
+.pytype/
+.pyre/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+nosetests.xml
+.hypothesis/
 
-# local dev database
-*.db
-*.sqlite3
-
-# node
+# ------------------------------------------------------------------ node
 node_modules/
 dist/
+dist-ssr/
+build/
 .vite/
+*.tsbuildinfo
+.npm
+.eslintcache
+.yarn/cache
+.yarn/install-state.gz
+.pnp.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# editors / os
-.DS_Store
+# -------------------------------------------------------------- database
+# Local SQLite databases. The schema lives in backend/db/migration/.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+dump.rdb
+*.dump
+
+# ------------------------------------------------------------------ logs
+logs/
+*.log
+
+# ------------------------------------------------------- local test data
+# Real work items and saved emails are not sample data — keep them out.
+# examples/ is curated and tracked.
+*.eml
+*.msg
+!examples/**/*.eml
+!examples/**/*.msg
+/tmp/
+scratch/
+.scratch/
+
+# ------------------------------------------------------------- container
+# Compose override files are per-developer by convention.
+docker-compose.override.yml
+.docker/
+
+# --------------------------------------------------------------- editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
 .idea/
-.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.\#*
+\#*\#
+
+# --------------------------------------------------------------------- os
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini

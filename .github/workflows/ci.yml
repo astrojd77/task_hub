@@ -1,0 +1,198 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+
+jobs:
+  backend:
+    name: Backend — lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install
+        working-directory: backend
+        run: pip install -e ".[dev,postgres]"
+
+      - name: Lint
+        working-directory: backend
+        run: ruff check app tests
+
+      - name: Format check
+        working-directory: backend
+        run: ruff format --check app tests
+
+      - name: Tests
+        working-directory: backend
+        # No network and no database needed — every adapter test uses a fake
+        # client and the DB fixture is in-memory SQLite.
+        run: python -m pytest -q
+
+  schema-parity:
+    name: Schema parity — Flyway SQL vs models
+    runs-on: ubuntu-latest
+    # Replaces `alembic check`. Hand-written SQL can drift from the models, and
+    # a column added to a model but forgotten in the migration would otherwise
+    # only surface in production.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: taskhub
+          POSTGRES_PASSWORD: taskhub
+          POSTGRES_DB: taskhub
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U taskhub -d taskhub"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install
+        working-directory: backend
+        run: pip install -e ".[dev,postgres]"
+
+      - name: Apply migrations with Flyway
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}/backend/db/migration/postgresql:/flyway/sql:ro" \
+            -e FLYWAY_URL=jdbc:postgresql://localhost:5432/taskhub \
+            -e FLYWAY_USER=taskhub \
+            -e FLYWAY_PASSWORD=taskhub \
+            -e FLYWAY_CONNECT_RETRIES=10 \
+            flyway/flyway:11-alpine migrate
+
+      - name: Compare the migrated schema against the models
+        working-directory: backend
+        env:
+          PARITY_DATABASE_URL: postgresql+psycopg://taskhub:taskhub@localhost:5432/taskhub
+        run: python -m pytest -q tests/test_schema_parity.py
+
+      - name: Smoke the app against the migrated schema
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg://taskhub:taskhub@localhost:5432/taskhub
+        run: |
+          python - <<'PY'
+          from datetime import date
+          from app.db.session import SessionLocal
+          from app.schemas.task import TaskCommitIn
+          from app.services.commit import commit_drafts
+
+          db = SessionLocal()
+          result = commit_drafts(db, [TaskCommitIn(
+              title="CI smoke", source_provider="csv", source_ref="ci-1",
+              due_date=date(2026, 1, 1), labels=["ci"],
+          )])
+          assert result.created == 1, result
+          # Re-commit must update, not duplicate.
+          again = commit_drafts(db, [TaskCommitIn(
+              title="CI smoke", source_provider="csv", source_ref="ci-1",
+          )])
+          assert (again.created, again.updated) == (0, 1), again
+          print("commit + idempotency OK against the Flyway schema")
+          db.close()
+          PY
+
+  frontend:
+    name: Frontend — typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck and build
+        working-directory: frontend
+        run: npm run build
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build
+        run: docker build -t task-hub:ci .
+
+      - name: Run as an arbitrary UID, the way OpenShift will
+        # The restricted-v2 SCC assigns a UID from the namespace range rather
+        # than using the image's USER. If the image only works as uid 1001,
+        # it will not start on the cluster.
+        run: |
+          docker run -d --name th --user 1000670000:0 -p 8080:8080 \
+            -e DATABASE_URL="sqlite+pysqlite:///:memory:" task-hub:ci
+          for _ in $(seq 1 60); do
+            curl -sf http://localhost:8080/api/health >/dev/null && break
+            sleep 1
+          done
+          echo "--- uid ---";  docker exec th id
+          echo "--- health ---"; curl -sf http://localhost:8080/api/health
+          echo "--- SPA ---";  test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/)" = 200
+          echo "--- SPA deep link ---"; test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/watch/x)" = 200
+          echo "--- unknown /api path stays JSON ---"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/nope)" = 404
+          docker rm -f th
+
+  manifests:
+    name: OpenShift manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Render with kustomize
+        run: |
+          kubectl kustomize deploy/openshift/base > /tmp/base.yaml
+          kubectl kustomize deploy/openshift/incluster-build > /tmp/incluster.yaml
+          echo "rendered $(grep -c '^kind:' /tmp/base.yaml) base resources"
+
+      - name: Guard the deployment invariants
+        # These are cheap to assert and expensive to discover on the cluster.
+        run: |
+          set -e
+          if grep -qE '^\s+runAsUser:|^\s+fsGroup:' /tmp/base.yaml; then
+            echo "::error::runAsUser/fsGroup must not be set — OpenShift assigns them"
+            exit 1
+          fi
+          grep -q 'runAsNonRoot: true' /tmp/base.yaml \
+            || { echo "::error::runAsNonRoot missing"; exit 1; }
+          if grep -q 'flyway.*clean' /tmp/base.yaml; then
+            echo "::error::flyway clean drops every object in the schema"
+            exit 1
+          fi
+          echo "manifest invariants hold"

@@ -157,9 +157,7 @@ class JiraDestination:
         by_name = {(t.get("name") or "").strip().lower(): t for t in available}
         # Also match on the transition's *target* status, which is often named
         # more consistently than the transition itself.
-        by_target = {
-            ((t.get("to") or {}).get("name") or "").strip().lower(): t for t in available
-        }
+        by_target = {((t.get("to") or {}).get("name") or "").strip().lower(): t for t in available}
 
         for candidate in wanted:
             match = by_name.get(candidate.lower()) or by_target.get(candidate.lower())

@@ -50,9 +50,7 @@ def test_commit_rejects_blank_title_with_422(client):
 
 def test_commit_rejects_off_scale_enum_with_422(client):
     payload = {
-        "drafts": [
-            {"title": "x", "source_provider": "csv", "source_ref": "r", "priority": "p0"}
-        ]
+        "drafts": [{"title": "x", "source_provider": "csv", "source_ref": "r", "priority": "p0"}]
     }
     assert client.post("/api/commit", json=payload).status_code == 422
 
@@ -168,8 +166,14 @@ def test_watch_excludes_done_work(client):
 
 def test_watch_sorts_by_score_descending(client):
     _commit(client, source_ref="a", title="Low", criticality="low", due_date="2026-07-20")
-    _commit(client, source_ref="b", title="High", criticality="critical",
-            impact_size="xl", due_date="2026-07-20")
+    _commit(
+        client,
+        source_ref="b",
+        title="High",
+        criticality="critical",
+        impact_size="xl",
+        due_date="2026-07-20",
+    )
 
     items = client.get("/api/watch", params={"today": "2026-07-26"}).json()
     overdue = next(s for s in items["sections"] if s["key"] == "overdue")["items"]

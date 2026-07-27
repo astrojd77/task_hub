@@ -173,9 +173,9 @@ def test_configured_custom_fields_map_into_the_canonical_scales(monkeypatch):
     monkeypatch.setattr(settings, "jira_criticality_field", "customfield_10042", raising=False)
     monkeypatch.setattr(settings, "jira_impact_field", "customfield_10043", raising=False)
 
-    source = src([
-        issue("OPS-1", customfield_10042={"value": "Sev 1"}, customfield_10043={"value": "XL"})
-    ])
+    source = src(
+        [issue("OPS-1", customfield_10042={"value": "Sev 1"}, customfield_10043={"value": "XL"})]
+    )
     draft = source.to_draft(source.fetch({"issue_key": "OPS-1"})[0])
 
     assert draft.criticality == "critical"

@@ -1,0 +1,53 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Import — CSV
+        - Import — Jira
+        - Import — email (.msg / .eml)
+        - Review / commit
+        - Task list
+        - Calendar
+        - Watch
+        - Destination routing / push
+        - Deployment / OpenShift
+        - Database / migrations
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: database
+    attributes:
+      label: Database
+      description: Dialect and version — schema behaviour differs across the three.
+      placeholder: Oracle 19c / Postgres 16 / SQLite
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Source data
+      description: >-
+        The CSV row, Jira issue shape or email that triggered it. Redact
+        anything sensitive — and never paste credentials or a connection string.
+      render: text
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output. Redact hostnames and credentials.
+      render: shell

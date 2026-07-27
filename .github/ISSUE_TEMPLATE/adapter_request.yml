@@ -1,0 +1,55 @@
+name: New source or destination
+description: Support importing from, or pushing to, another platform
+labels: ["adapter"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Adding a platform should mean writing one adapter and registering it —
+        no changes to the calendar, task list, watch view or commit service. If
+        this platform seems to need a core change, say so below; that is a
+        signal the abstraction needs fixing rather than working around.
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: MS Planner, Asana, ServiceNow…
+    validations:
+      required: true
+
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Direction
+      options:
+        - Source — import work items from it
+        - Destination — push committed tasks to it
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: targeting
+    attributes:
+      label: How would a targeted fetch work?
+      description: >-
+        Sources are targeted, never blanket pulls — one item, or one query.
+        What is the equivalent of a Jira issue key or JQL here?
+
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Vocabulary mapping
+      description: >-
+        How do its statuses and priorities map onto todo/in_progress/blocked/done
+        and low/medium/high/urgent? Does it carry anything resembling
+        criticality (severity) or impact size (blast radius)?
+
+  - type: input
+    id: idempotency
+    attributes:
+      label: Stable identifier
+      description: >-
+        What plays the role of source_ref, so re-importing updates rather than
+        duplicates?

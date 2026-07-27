@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup and configuration
+    url: https://github.com/astrojd77/task_hub/blob/main/docs/SETUP.md
+    about: Running it locally, Flyway migrations, Jira credentials, OpenShift.
+  - name: Architecture and conventions
+    url: https://github.com/astrojd77/task_hub/blob/main/.github/copilot-instructions.md
+    about: The invariants — review-before-commit, and adapters behind a registry.

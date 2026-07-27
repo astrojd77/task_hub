@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the routine patch churn; anything major still comes through
+      # on its own so it gets read.
+      backend-minor:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor:
+        update-types: ["minor", "patch"]
+      fullcalendar:
+        # These must move together — mismatched FullCalendar packages ship
+        # incompatible bundled types and break the build.
+        patterns: ["@fullcalendar/*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

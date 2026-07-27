@@ -32,3 +32,8 @@ images:
   - name: task-hub
     newName: task-hub
     newTag: latest
+  # Flyway applies the migrations. Repoint at your internal mirror; the tag is
+  # pinned rather than floating so a migration run is reproducible.
+  - name: flyway
+    newName: docker.io/flyway/flyway
+    newTag: 11-alpine

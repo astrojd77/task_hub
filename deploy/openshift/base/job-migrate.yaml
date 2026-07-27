@@ -1,14 +1,24 @@
-# Schema migrations, run as a one-shot Job.
+# Schema migrations, applied by Flyway as a one-shot Job.
 #
-# Deliberately NOT an initContainer: every replica runs its initContainers, so
-# scaling past one replica would race two `alembic upgrade head` runs against
-# the same database. A Job runs exactly once per release.
+# Deliberately NOT an initContainer on the Deployment: every replica runs its
+# own initContainers, so scaling past one replica would race two migration runs
+# against the same database.
+#
+# The SQL comes out of the *application image* rather than a ConfigMap, so the
+# migrations Flyway applies are always the ones that shipped with the code
+# being deployed. A ConfigMap could drift from the image; this cannot.
+#
+# The init container also derives the JDBC URL, credentials and dialect folder
+# from the same DATABASE_URL the app uses (app/db/jdbc.py), so there is exactly
+# one place a database is configured. The rendered flyway.conf lands on a
+# memory-backed emptyDir and never touches disk.
 #
 # Jobs are immutable, so re-running means deleting first:
 #
 #   oc delete job/task-hub-migrate --ignore-not-found
 #   oc apply -k deploy/openshift/base
-#   oc wait --for=condition=complete job/task-hub-migrate --timeout=300s
+#   oc wait --for=condition=complete job/task-hub-migrate --timeout=600s
+#   oc logs job/task-hub-migrate
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -18,7 +28,7 @@ metadata:
     app.kubernetes.io/component: migration
 spec:
   backoffLimit: 2
-  # Tidy up after itself, but leave long enough to read the logs.
+  # Long enough to read the logs after a failure, short enough to tidy up.
   ttlSecondsAfterFinished: 3600
   template:
     metadata:
@@ -28,14 +38,40 @@ spec:
     spec:
       restartPolicy: Never
       securityContext:
+        # The Flyway image declares no USER. On OpenShift the restricted-v2 SCC
+        # assigns a UID from the namespace range, which satisfies this. On
+        # vanilla Kubernetes there is no such injection, so add an explicit
+        # `runAsUser: 1001` here if you deploy this outside OpenShift.
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      containers:
-        - name: migrate
+
+      initContainers:
+        - name: render-migrations
           image: task-hub:latest
           imagePullPolicy: IfNotPresent
-          command: ["alembic", "upgrade", "head"]
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              DIALECT="$(python -m app.db.jdbc --field migration_dir)"
+              echo "migrating dialect: ${DIALECT}"
+
+              cp "db/migration/${DIALECT}/"*.sql /sql/
+
+              # Credentials go to a file rather than argv or env so they cannot
+              # be read out of the process list. umask keeps it owner-only.
+              umask 077
+              {
+                printf 'flyway.url=%s\n'      "$(python -m app.db.jdbc --field url)"
+                printf 'flyway.user=%s\n'     "$(python -m app.db.jdbc --field user)"
+                printf 'flyway.password=%s\n' "$(python -m app.db.jdbc --field password)"
+                printf 'flyway.locations=filesystem:/sql\n'
+                printf 'flyway.connectRetries=10\n'
+              } > /sql/flyway.conf
+
+              echo "migrations staged:"
+              ls -1 /sql/*.sql
           envFrom:
             - configMapRef:
                 name: task-hub-config
@@ -45,10 +81,49 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+      containers:
+        - name: flyway
+          image: flyway
+          imagePullPolicy: IfNotPresent
+          # `migrate` only. Never `clean` — Flyway's clean drops every object in
+          # the schema, and a Job that can do that is one bad merge away from
+          # destroying production data.
+          args: ["-configFiles=/sql/flyway.conf", "migrate"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
           resources:
             requests:
               cpu: 100m
               memory: 256Mi
             limits:
               cpu: "1"
-              memory: 512Mi
+              memory: 1Gi
+
+      volumes:
+        - name: sql
+          emptyDir:
+            # Memory-backed: the rendered flyway.conf holds the database
+            # password and should never reach a node's disk.
+            #
+            # An arbitrary UID can write here because kubelet creates an
+            # emptyDir world-writable and OpenShift chowns it to the fsGroup
+            # its SCC assigns. That is also why no fsGroup is hardcoded — doing
+            # so is what breaks these pods under restricted-v2.
+            medium: Memory
+            sizeLimit: 8Mi

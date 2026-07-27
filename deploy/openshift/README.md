@@ -19,7 +19,7 @@ deploy/openshift/
     deployment.yaml          the app
     service.yaml             ClusterIP :8080
     route.yaml               edge TLS, HTTP redirected
-    job-migrate.yaml         alembic upgrade head, run once per release
+    job-migrate.yaml         Flyway migrate, run once per release
   incluster-build/         optional: build the image inside the cluster
 ```
 
@@ -30,9 +30,16 @@ Pick **one** of the two image paths below, then follow "Deploy".
 ## Image path A — external registry (CI builds and pushes)
 
 ```bash
-podman build -t quay.io/your-org/task-hub:0.1.0 .
-podman push  quay.io/your-org/task-hub:0.1.0
+podman build \
+  --build-arg BASE_REGISTRY=registry.internal.example.com \
+  --build-arg NODE_IMAGE=ubi9/nodejs-20 \
+  --build-arg PYTHON_IMAGE=ubi9/python-312 \
+  -t quay.io/your-org/task-hub:0.1.0 .
+podman push quay.io/your-org/task-hub:0.1.0
 ```
+
+Base images default to Red Hat UBI9 and are parameterised, so pointing the
+build at an internal mirror needs no edit to the Dockerfile.
 
 Point the manifests at it by editing the `images:` block in
 `base/kustomization.yaml`:
@@ -110,9 +117,41 @@ oc wait --for=condition=complete job/task-hub-migrate --timeout=300s
 oc rollout status deployment/task-hub
 ```
 
-Migrations run as a **separate Job, not an initContainer**, because every
-replica runs its own initContainers — two replicas would race two
-`alembic upgrade head` runs against the same database.
+### How migrations work
+
+Flyway applies them from a **separate Job, not an initContainer on the
+Deployment** — every replica runs its own initContainers, so two replicas would
+race two migration runs against one database.
+
+The Job has two steps:
+
+1. An **init container running the application image** copies the SQL for the
+   right dialect out of that image and renders a `flyway.conf`. Taking the SQL
+   from the image rather than a ConfigMap guarantees the migrations applied are
+   the ones that shipped with the code being deployed — a ConfigMap can drift,
+   this cannot. Dialect, JDBC URL and credentials all come from the same
+   `DATABASE_URL` the app uses, via `app/db/jdbc.py`.
+2. The **Flyway container** runs `migrate` against that config.
+
+Credentials are written to a file on a memory-backed `emptyDir` rather than
+passed in argv, where they would appear in the process list, and never touch a
+node's disk.
+
+The Job runs `migrate` only. `clean` drops every object in the schema, and CI
+asserts it never appears in these manifests.
+
+Point the `flyway` image at your mirror in `base/kustomization.yaml`:
+
+```yaml
+images:
+  - name: flyway
+    newName: registry.internal.example.com/flyway/flyway
+    newTag: 11-alpine
+```
+
+Adding a migration means adding `V<n>__*.sql` to
+`backend/db/migration/{postgresql,oracle,sqlite}/` — never editing an applied
+one, since Flyway validates checksums.
 
 ---
 
@@ -125,9 +164,14 @@ That UID is always in group 0. Three consequences, all handled in the
 
 | Constraint | Handling |
 | ---------- | -------- |
-| Arbitrary UID, always in group 0 | `chgrp -R 0 /app && chmod -R g=u /app` |
-| That UID has no home directory | `HOME=/app`, which is group-writable |
+| Arbitrary UID, always in group 0 | `chgrp -R 0 /opt/app-root && chmod -R g=u /opt/app-root` |
+| That UID has no home directory | UBI already sets a writable `HOME` under `/opt/app-root` |
 | Cannot bind a privileged port | listens on 8080 |
+
+Base images default to Red Hat UBI9, which already runs as uid 1001 in group 0
+with a writable home, so most of this is inherited rather than hand-rolled.
+They are parameterised via `BASE_REGISTRY` / `NODE_IMAGE` / `PYTHON_IMAGE`
+build args for an internal mirror.
 
 The manifests deliberately set **no** `runAsUser` and no `fsGroup` — hardcoding
 either is the usual reason an image fails under `restricted-v2`. The pod does
@@ -178,13 +222,14 @@ Before the first production deploy, apply the migrations against a real Oracle
 instance — rendering the DDL is not the same as running it:
 
 ```bash
-# renders without a database, catches type/identifier problems
-DATABASE_URL="oracle+oracledb://u:p@h:1521/?service_name=X" alembic upgrade head --sql
-
-# the real thing
 docker compose --profile oracle up -d oracle
 DATABASE_URL="oracle+oracledb://taskhub:taskhub@localhost:1521/?service_name=FREEPDB1" \
-  backend/.venv/bin/alembic upgrade head
+  ./scripts/migrate.sh
+
+# then confirm the SQL still matches the models
+cd backend
+PARITY_DATABASE_URL="oracle+oracledb://taskhub:taskhub@localhost:1521/?service_name=FREEPDB1" \
+  .venv/bin/python -m pytest tests/test_schema_parity.py
 ```
 
 If the Oracle host is outside the cluster, confirm egress on 1521 is allowed
@@ -197,6 +242,8 @@ Running but never becomes Ready, with `/api/ready` returning 503.
 
 | Symptom | Likely cause |
 | ------- | ------------ |
+| Migration Job reports "Successfully baselined" but tables are missing | `baselineOnMigrate` ran against a non-empty schema and marked migrations applied without running them. |
+| `Migration checksum mismatch` | An applied migration was edited. Restore it and add a new `V<n>`. |
 | Pod `CrashLoopBackOff`, logs show a permission error | Something in the image is not group-0 writable. Check the `chgrp`/`chmod` layer survived an edit to the Dockerfile. |
 | Pod Running but never Ready | `/api/ready` is failing — the database is unreachable. `oc logs deployment/task-hub` and check egress to port 1521. |
 | `oc apply` fails on the Job | Jobs are immutable. `oc delete job/task-hub-migrate` first. |

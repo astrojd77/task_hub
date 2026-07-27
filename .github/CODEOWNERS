@@ -1,0 +1,15 @@
+# Every change needs a review from the owner by default.
+*                               @astrojd77
+
+# The two invariants of the architecture live here — review these closely.
+/backend/app/services/commit.py @astrojd77
+/backend/app/providers/         @astrojd77
+
+# Schema changes are hand-written SQL across three dialects with no
+# autogenerate to catch mistakes, and Oracle is production.
+/backend/db/migration/          @astrojd77
+
+# Anything that can take the deployment down or leak credentials.
+/deploy/                        @astrojd77
+/Dockerfile                     @astrojd77
+/.github/workflows/             @astrojd77

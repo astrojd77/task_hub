@@ -287,3 +287,264 @@ table.review tr.row-blocked {
 .ok {
   color: var(--ok);
 }
+
+/* --------------------------------------------------------------- filters */
+
+.filterbar {
+  padding: 12px 16px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-row + .filter-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.facet {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.facet select {
+  font: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.facet-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.toggles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chip.small {
+  padding: 1px 10px;
+  font-size: 12px;
+}
+
+.reset {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+/* -------------------------------------------------------------- calendar */
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+.fc {
+  font-size: 13px;
+}
+
+.fc .fc-button {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  text-transform: none;
+  box-shadow: none;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 16px;
+}
+
+.fc-event {
+  cursor: pointer;
+}
+
+.fc-task-done {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+/* ----------------------------------------------------------------- watch */
+
+.count {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+  text-align: center;
+}
+
+ul.watch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ul.watch-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 4px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+
+ul.watch-list li:hover {
+  background: var(--bg);
+}
+
+.score {
+  flex: none;
+  min-width: 30px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.watch-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.watch-title {
+  font-weight: 500;
+}
+
+.reasons {
+  font-size: 12px;
+  color: var(--warn);
+}
+
+.weights-body {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 0 0;
+}
+
+.weights-body ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* ---------------------------------------------------------------- modals */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 26, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 20px 22px;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+}
+
+.modal.wide {
+  max-width: 900px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-head h2 {
+  font-size: 17px;
+  margin: 0;
+  flex: 1;
+}
+
+.desc {
+  white-space: pre-wrap;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  margin: 0 0 14px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+dl.detail-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+dl.detail-grid dt {
+  color: var(--muted);
+}
+
+dl.detail-grid dd {
+  margin: 0;
+}
+
+tr.clickable {
+  cursor: pointer;
+}
+
+tr.clickable:hover {
+  background: var(--bg);
+}

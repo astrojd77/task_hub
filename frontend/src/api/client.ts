@@ -6,6 +6,7 @@ import type {
   Health,
   Providers,
   Task,
+  WatchOut,
 } from './types'
 
 export class ApiError extends Error {
@@ -101,6 +102,7 @@ export const api = {
   listTasks: (query?: TaskQuery) => request<Task[]>(`/tasks${toQueryString(query)}`),
   getTask: (id: string) => request<Task>(`/tasks/${id}`),
   facets: () => request<Record<string, string[]>>('/tasks/facets'),
+  watch: (query?: TaskQuery) => request<WatchOut>(`/watch${toQueryString(query)}`),
   deleteTask: (id: string) =>
     request<void>(`/tasks/${id}`, { method: 'DELETE' }),
 

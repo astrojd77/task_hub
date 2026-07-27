@@ -108,3 +108,82 @@ def test_spa_is_not_mounted_without_a_build(client):
 def test_unknown_api_path_404s_as_an_api_path(client):
     res = client.get("/api/nonexistent")
     assert res.status_code == 404
+
+
+# -- watch view ----------------------------------------------------------
+
+
+def _commit(client, **overrides):
+    draft = {
+        "title": "t",
+        "source_provider": "csv",
+        "source_ref": overrides.pop("source_ref", "r1"),
+    } | overrides
+    return client.post("/api/commit", json={"drafts": [draft]}).json()
+
+
+def test_watch_sections_and_scores(client):
+    _commit(
+        client,
+        source_ref="worst",
+        title="Cert expired",
+        criticality="critical",
+        impact_size="xl",
+        due_date="2026-07-20",
+    )
+    _commit(client, source_ref="calm", title="Tidy docs", due_date="2026-12-01")
+    _commit(client, source_ref="stuck", title="Waiting on vendor", status="blocked")
+
+    body = client.get("/api/watch", params={"today": "2026-07-26"}).json()
+    sections = {s["key"]: s for s in body["sections"]}
+
+    assert body["today"] == "2026-07-26"
+    assert body["weights"]["overdue"] == 5
+
+    overdue = sections["overdue"]["items"]
+    assert [i["task"]["title"] for i in overdue] == ["Cert expired"]
+    assert overdue[0]["score"] == 5 + 4 + 5
+    assert any("overdue" in r for r in overdue[0]["reasons"])
+
+    assert [i["task"]["title"] for i in sections["blocked"]["items"]] == ["Waiting on vendor"]
+    assert [i["task"]["title"] for i in sections["keep_an_eye_on"]["items"]] == ["Cert expired"]
+    # Far-future work belongs to no section.
+    assert all(
+        "Tidy docs" not in [i["task"]["title"] for i in s["items"]] for s in body["sections"]
+    )
+
+
+def test_watch_excludes_done_work(client):
+    _commit(
+        client,
+        source_ref="finished",
+        status="done",
+        criticality="critical",
+        due_date="2026-01-01",
+    )
+
+    body = client.get("/api/watch", params={"today": "2026-07-26"}).json()
+    assert all(s["items"] == [] for s in body["sections"])
+
+
+def test_watch_sorts_by_score_descending(client):
+    _commit(client, source_ref="a", title="Low", criticality="low", due_date="2026-07-20")
+    _commit(client, source_ref="b", title="High", criticality="critical",
+            impact_size="xl", due_date="2026-07-20")
+
+    items = client.get("/api/watch", params={"today": "2026-07-26"}).json()
+    overdue = next(s for s in items["sections"] if s["key"] == "overdue")["items"]
+
+    assert [i["task"]["title"] for i in overdue] == ["High", "Low"]
+    assert overdue[0]["score"] > overdue[1]["score"]
+
+
+def test_watch_honours_the_shared_filters(client):
+    _commit(client, source_ref="p1", project="Platform", criticality="critical")
+    _commit(client, source_ref="p2", project="Billing", criticality="critical")
+
+    body = client.get("/api/watch", params={"today": "2026-07-26", "project": "Platform"}).json()
+    eye = next(s for s in body["sections"] if s["key"] == "keep_an_eye_on")["items"]
+
+    assert len(eye) == 1
+    assert eye[0]["task"]["project"] == "Platform"

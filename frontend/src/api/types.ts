@@ -89,6 +89,35 @@ export interface Providers {
 /** Enum option lists come from the server so the UI never hardcodes a scale. */
 export type EnumCatalog = Record<string, string[]>
 
+export interface WatchItem {
+  task: Task
+  score: number
+  /** Why this score — the ranking is never a black box. */
+  reasons: string[]
+  sections: string[]
+}
+
+export interface WatchSection {
+  key: string
+  label: string
+  description: string
+  items: WatchItem[]
+}
+
+export interface WatchOut {
+  today: string
+  weights: {
+    criticality: Record<string, number>
+    impact: Record<string, number>
+    overdue: number
+    due_within_2_days: number
+    due_within_7_days: number
+    blocked: number
+    due_soon_days: number
+  }
+  sections: WatchSection[]
+}
+
 export interface Health {
   status: string
   app: string

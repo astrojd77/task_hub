@@ -80,7 +80,7 @@ export function WatchView({ enums, revision }: { enums: EnumCatalog; revision: n
                       {item.score}
                     </span>
                     <span className="watch-main">
-                      <span className="watch-title">{item.task.title}</span>
+                      <span className="watch-summary">{item.task.summary}</span>
                       <span className="env">
                         {[
                           item.task.project,

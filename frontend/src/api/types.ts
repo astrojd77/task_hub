@@ -7,7 +7,7 @@ export type ImpactSize = 'xs' | 's' | 'm' | 'l' | 'xl'
 
 export interface Task {
   id: string
-  title: string
+  summary: string
   description: string | null
   status: TaskStatus
   priority: Priority
@@ -29,7 +29,7 @@ export interface Task {
 
 /** A parsed-but-uncommitted candidate. Deliberately permissive. */
 export interface DraftTask {
-  title: string
+  summary: string
   description: string | null
   status: TaskStatus
   priority: Priority
@@ -184,12 +184,32 @@ export interface SourceDefault {
   value: string
 }
 
+export interface SourceMapping {
+  source_provider: string
+  field_key: string
+  /** Adapter-specific: a CSV column, a Jira field id, an email part. */
+  source_expr: string | null
+  /** Native value (lowercased) -> canonical value. */
+  value_map: Record<string, string>
+}
+
+/** What a source can feed a field *from*, as the adapter reports it. */
+export interface MappableInput {
+  key: string
+  label: string
+  /** A sample value from the file or issue, so the right choice is obvious. */
+  hint: string | null
+}
+
 export interface AppConfig {
   fields: FieldConfig[]
   defaults: SourceDefault[]
   sources: string[]
   /** Defaultable but not dropdowns, e.g. project and assignee. */
   defaultable_extra_keys: string[]
+  mappings: SourceMapping[]
+  /** Every canonical field a mapping can target, in display order. */
+  mappable_fields: FieldConfig[]
 }
 
 export interface Health {

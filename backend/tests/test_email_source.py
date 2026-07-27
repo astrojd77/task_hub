@@ -66,7 +66,7 @@ def draft_for(text: str, name: str = "note.eml"):
 def test_eml_maps_subject_to_title_and_body_to_description():
     draft = draft_for(EML)
 
-    assert draft.title == "Cert renewal needs sign-off"
+    assert draft.summary == "Cert renewal needs sign-off"
     assert "expires on the 1st" in draft.description
     assert "approve the renewal" in draft.description
 
@@ -97,7 +97,7 @@ def test_html_only_email_falls_back_to_stripped_html_and_says_so():
 
 def test_encoded_subject_is_decoded():
     raw = "Message-ID: <e@x>\nSubject: =?utf-8?B?Q2Fmw6kgcGxhbm5pbmc=?=\n\nbody\n"
-    assert draft_for(raw).title == "Café planning"
+    assert draft_for(raw).summary == "Café planning"
 
 
 def test_email_with_no_body_warns():
@@ -108,7 +108,7 @@ def test_email_with_no_body_warns():
 def test_email_with_no_subject_is_flagged_for_review_not_dropped():
     draft = draft_for("Message-ID: <e@x>\n\nJust a body\n")
 
-    assert draft.title == ""
+    assert draft.summary == ""
     assert any("no subject" in w for w in draft.warnings)
 
 

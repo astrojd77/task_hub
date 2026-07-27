@@ -18,11 +18,39 @@ from app.core.config import get_settings
 from app.core.enums import Criticality, ImpactSize, Priority, TaskStatus
 from app.core.parsing import parse_date
 from app.providers.base import ProviderError, RawItem
-from app.providers.jira_client import JiraClient, adf_to_text
+from app.providers.jira_client import BASE_FIELDS, JiraClient, adf_to_text
 from app.providers.registry import source
 from app.schemas.task import DraftTask
+from app.services.source_mapping import EMPTY_MAPPING, mapping_from_config, translate_enum
 
 ISSUE_KEY = re.compile(r"^[A-Z][A-Z0-9_]+-\d+$")
+
+#: Canonical field -> the Jira field that feeds it out of the box. Every one of
+#: these is remappable, which is what lets an instance whose "real" due date
+#: lives in a custom field work without a code change.
+DEFAULT_INPUTS: dict[str, str] = {
+    "summary": "summary",
+    "description": "description",
+    "status": "status",
+    "priority": "priority",
+    "due_date": "duedate",
+    "assignee": "assignee",
+    "project": "project",
+    "labels": "labels",
+}
+
+#: Offered by the mapping screen alongside whatever custom fields exist.
+BASE_INPUT_LABELS: dict[str, str] = {
+    "summary": "Summary",
+    "description": "Description",
+    "status": "Status",
+    "priority": "Priority",
+    "duedate": "Due date",
+    "assignee": "Assignee",
+    "project": "Project",
+    "labels": "Labels",
+    "issuetype": "Issue type",
+}
 
 #: Jira's own status *categories* are the stable signal; individual workflow
 #: status names vary per project and are matched first where we recognise them.
@@ -105,12 +133,21 @@ _IMPACT_NAMES: dict[str, ImpactSize] = {
 }
 
 
-def map_status(status: dict | None) -> tuple[TaskStatus, str | None]:
-    """Workflow name first, then Jira's status category as the fallback."""
+def map_status(status: dict | None, mapping: Any = EMPTY_MAPPING) -> tuple[TaskStatus, str | None]:
+    """Configured rules, then workflow name, then Jira's status category.
+
+    The category fallback matters because workflow status names are per-project
+    and unknowable in advance, whereas the category always exists.
+    """
     if not status:
         return TaskStatus.TODO, "no status on the issue — defaulted to todo"
 
-    name = (status.get("name") or "").strip().lower()
+    raw_name = (status.get("name") or "").strip()
+    configured, matched = mapping.translate("status", raw_name)
+    if matched:
+        return configured, None
+
+    name = raw_name.lower()
     if name in _STATUS_NAMES:
         return _STATUS_NAMES[name], None
 
@@ -125,13 +162,20 @@ def map_status(status: dict | None) -> tuple[TaskStatus, str | None]:
     return TaskStatus.TODO, f"status {status.get('name')!r} did not map — defaulted to todo"
 
 
-def map_priority(priority: dict | None) -> tuple[Priority, str | None]:
+def map_priority(
+    priority: dict | None, mapping: Any = EMPTY_MAPPING
+) -> tuple[Priority, str | None]:
     if not priority:
         return Priority.MEDIUM, None
-    name = (priority.get("name") or "").strip().lower()
-    if name in _PRIORITY_NAMES:
-        return _PRIORITY_NAMES[name], None
-    return Priority.MEDIUM, f"priority {priority.get('name')!r} did not map — defaulted to medium"
+
+    raw_name = (priority.get("name") or "").strip()
+    configured, matched = mapping.translate("priority", raw_name)
+    if matched:
+        return configured, None
+
+    if raw_name.lower() in _PRIORITY_NAMES:
+        return _PRIORITY_NAMES[raw_name.lower()], None
+    return Priority.MEDIUM, f"priority {raw_name!r} did not map — defaulted to medium"
 
 
 def _custom_value(raw: Any) -> str | None:
@@ -183,9 +227,52 @@ class JiraSource:
             "impact_field": settings.jira_impact_field or None,
         }
 
-    def _extra_fields(self) -> tuple[str, ...]:
+    def _extra_fields(self, config: dict[str, Any] | None = None) -> tuple[str, ...]:
+        """Non-standard Jira fields this fetch needs to ask for.
+
+        Anything a mapping points at that is not one of Jira's stock fields has
+        to be named explicitly in the request, or Jira simply will not return
+        it. The env-var settings remain as a fallback for instances configured
+        before the mapping screen existed.
+        """
         settings = get_settings()
-        return tuple(f for f in (settings.jira_criticality_field, settings.jira_impact_field) if f)
+        mapping = mapping_from_config(config or {})
+
+        wanted = {settings.jira_criticality_field, settings.jira_impact_field}
+        for field_mapping in mapping.fields.values():
+            if field_mapping.source_expr:
+                wanted.add(field_mapping.source_expr)
+
+        return tuple(sorted(f for f in wanted if f and f not in BASE_FIELDS))
+
+    def mappable_inputs(self, config: dict[str, Any]) -> list[dict[str, Any]]:
+        """Jira's stock fields, plus this instance's custom fields.
+
+        Discovering the custom fields is what turns "type customfield_10042 from
+        memory" into picking "Severity" from a list. It needs a live connection,
+        so a failure degrades to the stock list rather than breaking the screen.
+        """
+        inputs = [{"key": k, "label": v} for k, v in BASE_INPUT_LABELS.items()]
+
+        if not get_settings().jira_configured:
+            return inputs
+
+        try:
+            for field in self.client.list_fields():
+                if field.get("custom") and field.get("id"):
+                    inputs.append(
+                        {
+                            "key": field["id"],
+                            "label": field.get("name") or field["id"],
+                            "hint": "custom field",
+                        }
+                    )
+        except ProviderError:
+            # Unreachable or unauthorised — the stock list still lets the user
+            # map by hand.
+            pass
+
+        return inputs
 
     def describe(self, config: dict[str, Any]) -> dict[str, Any]:
         settings = get_settings()
@@ -207,7 +294,7 @@ class JiraSource:
         if not key and not jql:
             raise ProviderError("give an issue key or a JQL query")
 
-        extra = self._extra_fields()
+        extra = self._extra_fields(config)
 
         if key:
             if not ISSUE_KEY.match(key.upper()):
@@ -217,43 +304,64 @@ class JiraSource:
             limit = int(config.get("limit") or get_settings().jira_max_results)
             issues = self.client.search(jql, extra, limit=limit)
 
+        # The resolver rides along on each item so to_draft can apply the
+        # mapping without needing the config or a database session.
+        mapping = mapping_from_config(config)
         return [
-            RawItem(source_ref=issue["key"], payload=issue) for issue in issues if issue.get("key")
+            RawItem(source_ref=issue["key"], payload={**issue, "_mapping": mapping})
+            for issue in issues
+            if issue.get("key")
         ]
 
     def to_draft(self, raw: RawItem) -> DraftTask:
         settings = get_settings()
         issue = raw.payload
         fields = issue.get("fields") or {}
+        mapping = raw.payload.get("_mapping") or EMPTY_MAPPING
         warnings: list[str] = []
 
-        status, status_warning = map_status(fields.get("status"))
+        def source_field(field_key: str):
+            """Read whichever Jira field is mapped to this canonical field."""
+            return fields.get(mapping.input_for(field_key, DEFAULT_INPUTS.get(field_key)))
+
+        status, status_warning = map_status(source_field("status"), mapping)
         if status_warning:
             warnings.append(status_warning)
 
-        priority, priority_warning = map_priority(fields.get("priority"))
+        priority, priority_warning = map_priority(source_field("priority"), mapping)
         if priority_warning:
             warnings.append(priority_warning)
 
-        due_date, date_warning = parse_date(fields.get("duedate"))
+        due_date, date_warning = parse_date(source_field("due_date"))
         if date_warning:
             warnings.append(date_warning)
 
         criticality = self._mapped_enum(
-            fields, settings.jira_criticality_field, _CRITICALITY_NAMES, "criticality", warnings
+            fields,
+            mapping.input_for("criticality", settings.jira_criticality_field),
+            _CRITICALITY_NAMES,
+            "criticality",
+            mapping,
+            "criticality",
+            warnings,
         )
         impact = self._mapped_enum(
-            fields, settings.jira_impact_field, _IMPACT_NAMES, "impact", warnings
+            fields,
+            mapping.input_for("impact_size", settings.jira_impact_field),
+            _IMPACT_NAMES,
+            "impact",
+            mapping,
+            "impact_size",
+            warnings,
         )
 
-        assignee = (fields.get("assignee") or {}).get("displayName")
-        project = (fields.get("project") or {}).get("name") or (fields.get("project") or {}).get(
-            "key"
-        )
+        assignee = (source_field("assignee") or {}).get("displayName")
+        raw_project = source_field("project") or {}
+        project = raw_project.get("name") or raw_project.get("key")
 
         return DraftTask(
-            title=(fields.get("summary") or "").strip(),
-            description=adf_to_text(fields.get("description")),
+            summary=(source_field("summary") or "").strip(),
+            description=adf_to_text(source_field("description")),
             status=status,
             priority=priority,
             criticality=criticality,
@@ -261,12 +369,34 @@ class JiraSource:
             due_date=due_date,
             assignee=assignee,
             project=project,
-            labels=list(fields.get("labels") or []),
+            labels=list(source_field("labels") or []),
             source_provider=self.id,
             source_ref=issue["key"],
-            raw_payload=issue,
+            custom_fields=self._custom_fields(fields, mapping),
+            raw_payload={k: v for k, v in issue.items() if k != "_mapping"},
             warnings=warnings,
         )
+
+    @staticmethod
+    def _custom_fields(fields: dict, mapping) -> dict[str, str]:
+        """Configured custom fields, read from whichever Jira field feeds them.
+
+        The adapter needs no knowledge of what Type or Platform mean — only
+        that a mapping points at a Jira field, and that the field is not one of
+        the canonical ones.
+        """
+        values: dict[str, str] = {}
+        for field_key, field_mapping in mapping.fields.items():
+            if field_key in DEFAULT_INPUTS or field_key in {"criticality", "impact_size"}:
+                continue
+            if not field_mapping.source_expr:
+                continue
+            native = _custom_value(fields.get(field_mapping.source_expr))
+            if native is None:
+                continue
+            translated, matched = mapping.translate(field_key, native)
+            values[field_key] = translated if matched else native
+        return values
 
     def _mapped_enum(
         self,
@@ -274,6 +404,8 @@ class JiraSource:
         field_id: str,
         table: dict,
         label: str,
+        mapping,
+        field_key: str,
         warnings: list[str],
     ):
         """Read a configured custom field, or leave it for the review popup.
@@ -290,7 +422,4 @@ class JiraSource:
             warnings.append(f"{label} field {field_id} is empty on this issue — set it below")
             return None
 
-        mapped = table.get(value.strip().lower())
-        if mapped is None:
-            warnings.append(f"{label} {value!r} from {field_id} is not on the scale — set it below")
-        return mapped
+        return translate_enum(mapping, field_key, value, table, label, warnings)

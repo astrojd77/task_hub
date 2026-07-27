@@ -46,7 +46,7 @@ export function DraftReview({
     setDrafts((prev) => {
       const next = [...prev]
       next[index] = { ...next[index], ...patch }
-      if (patch.title !== undefined && isCommittable(next[index])) {
+      if (patch.summary !== undefined && isCommittable(next[index])) {
         setSelected((s) => new Set(s).add(index))
       }
       return next

@@ -133,6 +133,11 @@ pre-fills.
   need no migration or code change. Values live in `tasks.custom_fields` and are
   validated against the configured options on commit — the JSON column itself
   enforces nothing.
+* **Field mapping** says which input feeds each field, per flow — a CSV column,
+  a Jira field id, an email part — and how that input's values translate
+  (`Sev 1 → critical`). Both halves are overrides: leave them blank and the
+  adapter's own detection applies. The choices come from the adapter, so a Jira
+  custom field is picked by name rather than typed as `customfield_10042`.
 * **Per-flow defaults** pre-fill a draft *before* review, and only where the
   source left the field blank: a source is authoritative for what it actually
   knows. Every applied default is announced on the draft, and the reviewer can
@@ -180,7 +185,7 @@ frontend/src/
 
 | Source | Targeting | Idempotency key |
 | ------ | --------- | --------------- |
-| CSV | a file, with column mapping | row hash of the *original* row, or an id column if present |
+| CSV | a file, with configurable column mapping | row hash of the *original* row, or an id column if present |
 | Jira | **one issue key or one JQL query** — never a blanket pull | issue key |
 | Email | a saved `.msg` / `.eml`, parsed locally | `Message-ID`, falling back to a content hash |
 
@@ -331,6 +336,8 @@ committed.
 | GET | `/api/config` | field definitions and per-source defaults |
 | PUT/DELETE | `/api/config/fields/{key}` | manage a dropdown's options |
 | PUT | `/api/config/defaults` | set or clear a per-flow default |
+| PUT | `/api/config/mappings` | save a flow's field and value mapping |
+| POST | `/api/sources/{id}/inputs` | what that source can feed a field from |
 | POST | `/api/sources/{id}/drafts` | parse a source's input into drafts — persists nothing |
 | POST | `/api/commit` | **the only door into the task store** |
 | GET/PUT | `/api/routes` | per-project default destinations |

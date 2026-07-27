@@ -56,7 +56,7 @@ class TaskFilters:
             # lower(a) LIKE lower(b) everywhere else, so this is portable.
             stmt = stmt.where(
                 or_(
-                    Task.title.ilike(like),
+                    Task.summary.ilike(like),
                     Task.description.ilike(like),
                 )
             )

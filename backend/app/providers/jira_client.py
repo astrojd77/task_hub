@@ -39,7 +39,7 @@ class JiraClient:
                 "Jira is not configured — set JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN"
             )
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> dict:
+    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         self._require_config()
         url = f"{self.settings.jira_base_url.rstrip('/')}{path}"
         try:
@@ -66,6 +66,7 @@ class JiraClient:
         if not response.content:
             return {}
         try:
+            # Most endpoints return an object; /field returns a bare array.
             return response.json()
         except ValueError as exc:
             raise ProviderError("Jira returned a response that was not JSON") from exc
@@ -84,6 +85,15 @@ class JiraClient:
         }
         body = self._request("POST", "/rest/api/3/search/jql", json=payload)
         return body.get("issues", [])
+
+    def list_fields(self) -> list[dict]:
+        """Every field this instance has, stock and custom.
+
+        Backs the mapping screen's dropdown, so nobody has to remember that
+        Severity is customfield_10042.
+        """
+        body = self._request("GET", "/rest/api/3/field")
+        return body if isinstance(body, list) else []
 
     # -- writes ----------------------------------------------------------
 

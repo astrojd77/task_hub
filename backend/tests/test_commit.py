@@ -14,7 +14,7 @@ from app.services.commit import commit_drafts
 
 def draft(**overrides) -> TaskCommitIn:
     base = {
-        "title": "Rotate the signing certificate",
+        "summary": "Rotate the signing certificate",
         "source_provider": "csv",
         "source_ref": "row-1",
     }
@@ -33,7 +33,7 @@ def test_commit_persists_a_task(db):
     assert count(db) == 1
 
     task = db.execute(select(Task)).scalar_one()
-    assert task.title == "Rotate the signing certificate"
+    assert task.summary == "Rotate the signing certificate"
     assert task.status == "todo"
     assert task.priority == "medium"
     assert task.destination == "local"
@@ -41,22 +41,22 @@ def test_commit_persists_a_task(db):
 
 
 def test_reimport_updates_and_does_not_duplicate(db):
-    commit_drafts(db, [draft(title="Original")])
-    result = commit_drafts(db, [draft(title="Renamed upstream")])
+    commit_drafts(db, [draft(summary="Original")])
+    result = commit_drafts(db, [draft(summary="Renamed upstream")])
 
     assert result.created == 0
     assert result.updated == 1
     assert count(db) == 1
-    assert db.execute(select(Task)).scalar_one().title == "Renamed upstream"
+    assert db.execute(select(Task)).scalar_one().summary == "Renamed upstream"
 
 
 def test_same_source_ref_twice_in_one_batch_collapses(db):
     """A CSV with a repeated row must not blow up on the unique constraint."""
-    result = commit_drafts(db, [draft(title="First"), draft(title="Second")])
+    result = commit_drafts(db, [draft(summary="First"), draft(summary="Second")])
 
     assert (result.created, result.updated) == (1, 1)
     assert count(db) == 1
-    assert db.execute(select(Task)).scalar_one().title == "Second"
+    assert db.execute(select(Task)).scalar_one().summary == "Second"
 
 
 def test_same_ref_from_different_sources_are_distinct_tasks(db):
@@ -121,9 +121,9 @@ def test_json_columns_round_trip(db):
 
 
 @pytest.mark.parametrize("bad_title", ["", "   "])
-def test_blank_title_is_rejected(bad_title):
+def test_blank_summary_is_rejected(bad_title):
     with pytest.raises(ValueError):
-        draft(title=bad_title)
+        draft(summary=bad_title)
 
 
 @pytest.mark.parametrize(

@@ -56,7 +56,7 @@ class Task(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
 
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    summary: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=TaskStatus.TODO.value)
@@ -95,4 +95,4 @@ class Task(Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
-        return f"<Task {self.id} {self.source_provider}:{self.source_ref} {self.title!r}>"
+        return f"<Task {self.id} {self.source_provider}:{self.source_ref} {self.summary!r}>"

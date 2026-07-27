@@ -42,7 +42,7 @@ export function CsvImport({
         setBatch(next)
         setDrafts(next.drafts)
         // Pre-select everything that could be committed as-is; rows missing a
-        // title stay unselected until the reviewer fixes them.
+        // summary stay unselected until the reviewer fixes them.
         setSelected(
           new Set(next.drafts.map((d, i) => (isCommittable(d) ? i : -1)).filter((i) => i >= 0)),
         )
@@ -76,7 +76,7 @@ export function CsvImport({
       const next = [...prev]
       next[index] = { ...next[index], ...patch }
       // A row that just became valid should not silently stay unselected.
-      if (patch.title !== undefined && isCommittable(next[index])) {
+      if (patch.summary !== undefined && isCommittable(next[index])) {
         setSelected((s) => new Set(s).add(index))
       }
       return next

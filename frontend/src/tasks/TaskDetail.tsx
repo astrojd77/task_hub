@@ -33,11 +33,11 @@ export function TaskDetail({
         className="modal"
         role="dialog"
         aria-modal="true"
-        aria-label={task.title}
+        aria-label={task.summary}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <h2>{task.title}</h2>
+          <h2>{task.summary}</h2>
           <button className="linkish" onClick={onClose} aria-label="Close">
             ✕
           </button>

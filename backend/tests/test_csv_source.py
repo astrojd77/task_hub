@@ -33,7 +33,7 @@ def test_suggest_mapping_matches_common_header_spellings():
     columns = ["Summary", "Details", "State", "Urgency", "Severity", "Impact", "Due Date"]
     mapping = suggest_mapping(columns)
 
-    assert mapping["title"] == "Summary"
+    assert mapping["summary"] == "Summary"
     assert mapping["description"] == "Details"
     assert mapping["status"] == "State"
     assert mapping["priority"] == "Urgency"
@@ -49,14 +49,14 @@ def test_a_column_is_never_mapped_to_two_fields():
 
 def test_explicit_mapping_overrides_the_suggestion():
     text = "alpha,beta\nfirst,second\n"
-    drafts = drafts_for(text, mapping={"title": "beta", "description": "alpha"})
+    drafts = drafts_for(text, mapping={"summary": "beta", "description": "alpha"})
 
-    assert drafts[0].title == "second"
+    assert drafts[0].summary == "second"
     assert drafts[0].description == "first"
 
 
 def test_mapping_to_a_missing_column_is_ignored_not_fatal():
-    drafts = drafts_for(mapping={"title": "Summary", "project": "NoSuchColumn"})
+    drafts = drafts_for(mapping={"summary": "Summary", "project": "NoSuchColumn"})
     assert drafts[0].project is None
 
 
@@ -80,12 +80,12 @@ def test_unmappable_enum_value_warns_and_stays_blank():
     assert any("not on the scale" in w for w in draft.warnings)
 
 
-def test_missing_title_is_flagged_for_review_not_dropped():
+def test_missing_summary_is_flagged_for_review_not_dropped():
     text = "Summary,Owner\n,ana\n"
     draft = drafts_for(text)[0]
 
-    assert draft.title == ""
-    assert any("no title" in w for w in draft.warnings)
+    assert draft.summary == ""
+    assert any("no summary" in w for w in draft.warnings)
 
 
 def test_dates_and_labels():
@@ -120,7 +120,7 @@ def test_unparseable_date_warns_and_leaves_it_blank():
 
 def test_criticality_and_impact_default_to_blank_when_absent():
     """These are what the review popup exists to capture."""
-    text = "Summary\nJust a title\n"
+    text = "Summary\nJust a summary\n"
     draft = drafts_for(text)[0]
 
     assert draft.criticality is None
@@ -154,7 +154,7 @@ def test_row_hash_ignores_reviewed_edits_by_hashing_the_original_row():
     original = drafts_for()[0]
     reimported = drafts_for()[0]
 
-    original.title = "Renamed during review"
+    original.summary = "Renamed during review"
     assert original.source_ref == reimported.source_ref
 
 
@@ -164,13 +164,13 @@ def test_row_hash_ignores_reviewed_edits_by_hashing_the_original_row():
 def test_semicolon_delimited_file():
     text = "Summary;Owner\nThing;ana\n"
     draft = drafts_for(text)[0]
-    assert (draft.title, draft.assignee) == ("Thing", "ana")
+    assert (draft.summary, draft.assignee) == ("Thing", "ana")
 
 
 def test_tab_delimited_file():
     text = "Summary\tOwner\nThing\tana\n"
     draft = drafts_for(text)[0]
-    assert (draft.title, draft.assignee) == ("Thing", "ana")
+    assert (draft.summary, draft.assignee) == ("Thing", "ana")
 
 
 def test_utf8_bom_is_stripped_from_the_first_header():
@@ -198,7 +198,7 @@ def test_describe_reports_columns_and_mapping():
 
     assert meta["row_count"] == 2
     assert "Summary" in meta["columns"]
-    assert meta["mapping"]["title"] == "Summary"
+    assert meta["mapping"]["summary"] == "Summary"
     assert "criticality" in meta["mappable_fields"]
 
 

@@ -67,9 +67,9 @@ export function ReviewModal({
             <span>Title *</span>
             <input
               className={blocked ? 'invalid' : undefined}
-              value={draft.title}
+              value={draft.summary}
               placeholder="Required"
-              onChange={(e) => onChange({ title: e.target.value })}
+              onChange={(e) => onChange({ summary: e.target.value })}
             />
           </label>
 

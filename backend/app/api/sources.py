@@ -24,8 +24,63 @@ from app.services.drafts import build_batch
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
+
+def _parse_config(config: str) -> dict[str, Any]:
+    try:
+        parsed: Any = json.loads(config or "{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail=f"config is not valid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=422, detail="config must be a JSON object")
+    return parsed
+
+
+async def _read_capped(file: UploadFile) -> bytes:
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"file is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB",
+        )
+    return content
+
+
 #: Guards against a stray multi-hundred-MB upload turning into memory pressure.
 MAX_UPLOAD_BYTES = 16 * 1024 * 1024
+
+
+@router.post("/{source_id}/inputs")
+async def mappable_inputs(
+    source_id: str,
+    file: UploadFile | None = File(default=None),
+    config: str = Form(default="{}"),
+) -> list[dict]:
+    """What this source can feed a field *from*.
+
+    POST rather than GET because CSV cannot answer without the file — its
+    inputs are the uploaded file's columns. Jira and email answer without one.
+    Sources that do not implement the capability return an empty list, and the
+    mapping screen falls back to a free-text box.
+    """
+    try:
+        provider = registry.source(source_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    parsed_config = _parse_config(config)
+    if file is not None:
+        parsed_config["file"] = UploadedFile(
+            filename=file.filename or "upload", content=await _read_capped(file)
+        )
+
+    describe = getattr(provider, "mappable_inputs", None)
+    if not callable(describe):
+        return []
+
+    try:
+        return describe(parsed_config)
+    except ProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/{source_id}/drafts", response_model=DraftBatch)
@@ -40,21 +95,11 @@ async def build_drafts(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    try:
-        parsed_config: Any = json.loads(config or "{}")
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=422, detail=f"config is not valid JSON: {exc}") from exc
-    if not isinstance(parsed_config, dict):
-        raise HTTPException(status_code=422, detail="config must be a JSON object")
-
+    parsed_config = _parse_config(config)
     if file is not None:
-        content = await file.read()
-        if len(content) > MAX_UPLOAD_BYTES:
-            raise HTTPException(
-                status_code=413,
-                detail=f"file is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB",
-            )
-        parsed_config["file"] = UploadedFile(filename=file.filename or "upload", content=content)
+        parsed_config["file"] = UploadedFile(
+            filename=file.filename or "upload", content=await _read_capped(file)
+        )
 
     try:
         return build_batch(db, provider, parsed_config)

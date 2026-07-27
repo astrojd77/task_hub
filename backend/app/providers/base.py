@@ -77,15 +77,21 @@ class SourceProvider(Protocol):
         """Normalise one raw item into a canonical draft. Sets ``source_ref``."""
         ...
 
-    # Optional extension point, probed with getattr — a source that needs to
-    # tell the review UI something about the batch as a whole (CSV: which
-    # columns it found and how it mapped them; Jira: the query it ran) may
-    # implement:
+    # Two optional extension points, both probed with getattr.
     #
     #     def describe(self, config: dict) -> dict: ...
     #
-    # Whatever it returns lands in ``DraftBatch.meta``. Sources that have
-    # nothing to add simply omit the method; the route does not care.
+    # Tells the review UI about the batch as a whole — CSV reports the columns
+    # it found and how it mapped them, Jira the query it ran. Whatever it
+    # returns lands in ``DraftBatch.meta``.
+    #
+    #     def mappable_inputs(self, config: dict) -> list[dict]: ...
+    #
+    # Lists what this source can feed a field *from*, as
+    # ``[{"key": ..., "label": ..., "hint": ...}]``, so the mapping screen can
+    # offer real choices instead of asking the user to type a Jira field id
+    # from memory. CSV returns the uploaded file's columns, Jira its fields,
+    # email its parts. Sources that omit it simply get a free-text box.
 
 
 @runtime_checkable

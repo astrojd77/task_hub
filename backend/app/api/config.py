@@ -21,6 +21,7 @@ from app.services.field_config import (
     set_default,
     upsert_field,
 )
+from app.services.source_mapping import list_mappings, replace_mappings
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -65,6 +66,33 @@ class DefaultIn(BaseModel):
     value: str | None = None
 
 
+class MappingSpec(BaseModel):
+    source_expr: str | None = None
+    value_map: dict[str, str] = Field(default_factory=dict)
+
+
+class MappingOut(BaseModel):
+    source_provider: str
+    field_key: str
+    #: Adapter-specific: a CSV column, a Jira field id, an email part.
+    source_expr: str | None
+    #: Native value (lowercased) -> canonical value.
+    value_map: dict[str, str]
+
+
+class MappingIn(BaseModel):
+    source_provider: str
+    #: field_key -> {source_expr, value_map}. A field with neither is cleared.
+    mappings: dict[str, MappingSpec]
+
+
+class InputOut(BaseModel):
+    key: str
+    label: str
+    #: A sample value from the file or issue, so the choice is obvious.
+    hint: str | None = None
+
+
 class ConfigOut(BaseModel):
     fields: list[FieldOut]
     defaults: list[DefaultOut]
@@ -72,6 +100,9 @@ class ConfigOut(BaseModel):
     sources: list[str]
     #: Fields a default may target that are not dropdowns.
     defaultable_extra_keys: list[str]
+    mappings: list[MappingOut]
+    #: Every canonical field a mapping can target, in display order.
+    mappable_fields: list[FieldOut]
 
 
 def _to_out(field) -> FieldOut:
@@ -102,7 +133,41 @@ def get_config(db: Session = Depends(get_db)) -> ConfigOut:
         ],
         sources=[s.id for s in registry.sources()],
         defaultable_extra_keys=list(DEFAULTABLE_EXTRA_KEYS),
+        mappings=[
+            MappingOut(
+                source_provider=m.source_provider,
+                field_key=m.field_key,
+                source_expr=m.source_expr,
+                value_map=m.value_map or {},
+            )
+            for m in list_mappings(db)
+        ],
+        mappable_fields=[_to_out(f) for f in list_fields(db)],
     )
+
+
+@router.put("/mappings", response_model=list[MappingOut])
+def put_mappings(payload: MappingIn, db: Session = Depends(get_db)) -> list[MappingOut]:
+    """Save a whole flow's mapping at once, as the Config screen does."""
+    try:
+        registry.source(payload.source_provider)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    saved = replace_mappings(
+        db,
+        payload.source_provider,
+        {k: v.model_dump() for k, v in payload.mappings.items()},
+    )
+    return [
+        MappingOut(
+            source_provider=m.source_provider,
+            field_key=m.field_key,
+            source_expr=m.source_expr,
+            value_map=m.value_map or {},
+        )
+        for m in saved
+    ]
 
 
 @router.put("/fields/{field_key}", response_model=FieldOut)

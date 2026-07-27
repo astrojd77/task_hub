@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { AppConfig, FieldConfig, FieldOption } from '../api/types'
+import { MappingPanel } from './MappingPanel'
 
 /**
  * Config screen: what the dropdowns offer, and what each import flow pre-fills.
@@ -62,6 +63,8 @@ export function ConfigView({ onChanged }: { onChanged: () => void }) {
 
         <NewField onCreate={(next) => run(() => api.saveField(next))} />
       </div>
+
+      <MappingPanel config={config} onSaved={() => void reload()} />
 
       <DefaultsPanel config={config} onSet={(s, f, v) => run(() => api.setDefault(s, f, v))} />
     </div>

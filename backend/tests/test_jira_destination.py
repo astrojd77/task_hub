@@ -47,7 +47,7 @@ class FakeClient:
 def task(**overrides) -> TaskOut:
     base = {
         "id": "abc-123",
-        "title": "Rotate signing cert",
+        "summary": "Rotate signing cert",
         "description": "Expires soon",
         "status": "todo",
         "priority": "high",

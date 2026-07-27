@@ -23,7 +23,7 @@ from app.services.field_config import validate_custom_fields
 
 #: Fields copied verbatim from a reviewed draft onto the stored task.
 _MUTABLE_FIELDS = (
-    "title",
+    "summary",
     "description",
     "status",
     "priority",

@@ -65,7 +65,7 @@ export function CalendarView({
         .filter((t) => t.due_date)
         .map((t) => ({
           id: t.id,
-          title: t.title,
+          title: t.summary,
           start: t.due_date!,
           allDay: true,
           backgroundColor: CRITICALITY_COLOR[t.criticality ?? ''] ?? UNSET_COLOR,

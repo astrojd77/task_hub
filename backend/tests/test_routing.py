@@ -18,7 +18,7 @@ from app.services.routing import (
 
 def make_task(db, **overrides) -> Task:
     base = {
-        "title": "t",
+        "summary": "t",
         "status": "todo",
         "priority": "medium",
         "source_provider": "csv",

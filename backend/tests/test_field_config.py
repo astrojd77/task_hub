@@ -20,7 +20,7 @@ from app.services.field_config import (
 
 
 def draft(**overrides) -> DraftTask:
-    base = {"title": "t", "source_provider": "csv", "source_ref": "r1"}
+    base = {"summary": "t", "source_provider": "csv", "source_ref": "r1"}
     return DraftTask(**(base | overrides))
 
 
@@ -354,7 +354,7 @@ def test_committing_an_off_option_custom_value_is_a_row_error(client):
         json={
             "drafts": [
                 {
-                    "title": "x",
+                    "summary": "x",
                     "source_provider": "csv",
                     "source_ref": "r",
                     "custom_fields": {"type": "banana"},

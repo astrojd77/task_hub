@@ -17,7 +17,7 @@ export interface DraftIssue {
 /** Server-authoritative rules, mirrored here only for immediate feedback. */
 export function validateDraft(draft: DraftTask): DraftIssue[] {
   const issues: DraftIssue[] = []
-  if (!draft.title.trim())
+  if (!draft.summary.trim())
     issues.push({ blocking: true, message: 'Title is required' })
   if (!draft.due_date)
     issues.push({ blocking: false, message: 'No due date — will not appear on the calendar' })
@@ -98,12 +98,12 @@ export function ReviewTable({
                     aria-label={`Select row ${i + 1}`}
                   />
                 </td>
-                <td className="col-title">
+                <td className="col-summary">
                   <input
                     className={blocked ? 'invalid' : undefined}
-                    value={draft.title}
+                    value={draft.summary}
                     placeholder="Required"
-                    onChange={(e) => onChange(i, { title: e.target.value })}
+                    onChange={(e) => onChange(i, { summary: e.target.value })}
                   />
                   <RowNotes draft={draft} issues={issues} />
                 </td>

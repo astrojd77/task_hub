@@ -13,10 +13,14 @@ Oracle Instant Client on the image.
 Hand-written SQL, one folder per dialect:
 
 ```
-backend/db/migration/postgresql/V1__baseline_schema.sql
-backend/db/migration/oracle/V1__baseline_schema.sql
-backend/db/migration/sqlite/V1__baseline_schema.sql
+backend/db/migration/{postgresql,oracle,sqlite}/
+  V1__baseline_schema.sql
+  V2__configurable_fields.sql
+  V3__summary_and_source_mappings.sql
 ```
+
+The short text field is `summary`, not `title` — that is what Jira and email
+already call it. `description` is the long one.
 
 **A schema change means editing all three files.** There is no autogenerate.
 `backend/tests/test_schema_parity.py` compares the migrated schema against the

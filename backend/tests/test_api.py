@@ -25,7 +25,7 @@ def test_commit_endpoint_round_trip(client):
     payload = {
         "drafts": [
             {
-                "title": "Patch the auth service",
+                "summary": "Patch the auth service",
                 "source_provider": "csv",
                 "source_ref": "row-1",
                 "due_date": "2026-08-15",
@@ -39,18 +39,18 @@ def test_commit_endpoint_round_trip(client):
 
     tasks = client.get("/api/tasks").json()
     assert len(tasks) == 1
-    assert tasks[0]["title"] == "Patch the auth service"
+    assert tasks[0]["summary"] == "Patch the auth service"
     assert tasks[0]["criticality"] == "high"
 
 
 def test_commit_rejects_blank_title_with_422(client):
-    payload = {"drafts": [{"title": "  ", "source_provider": "csv", "source_ref": "r"}]}
+    payload = {"drafts": [{"summary": "  ", "source_provider": "csv", "source_ref": "r"}]}
     assert client.post("/api/commit", json=payload).status_code == 422
 
 
 def test_commit_rejects_off_scale_enum_with_422(client):
     payload = {
-        "drafts": [{"title": "x", "source_provider": "csv", "source_ref": "r", "priority": "p0"}]
+        "drafts": [{"summary": "x", "source_provider": "csv", "source_ref": "r", "priority": "p0"}]
     }
     assert client.post("/api/commit", json=payload).status_code == 422
 
@@ -58,14 +58,14 @@ def test_commit_rejects_off_scale_enum_with_422(client):
 def test_task_filters(client):
     drafts = [
         {
-            "title": "A",
+            "summary": "A",
             "source_provider": "csv",
             "source_ref": "a",
             "project": "Platform",
             "status": "blocked",
         },
         {
-            "title": "B",
+            "summary": "B",
             "source_provider": "csv",
             "source_ref": "b",
             "project": "Billing",
@@ -84,10 +84,10 @@ def test_task_filters(client):
 
 
 def test_task_detail_and_delete(client):
-    payload = {"drafts": [{"title": "A", "source_provider": "csv", "source_ref": "a"}]}
+    payload = {"drafts": [{"summary": "A", "source_provider": "csv", "source_ref": "a"}]}
     task_id = client.post("/api/commit", json=payload).json()["tasks"][0]["id"]
 
-    assert client.get(f"/api/tasks/{task_id}").json()["title"] == "A"
+    assert client.get(f"/api/tasks/{task_id}").json()["summary"] == "A"
     assert client.delete(f"/api/tasks/{task_id}").status_code == 204
     assert client.get(f"/api/tasks/{task_id}").status_code == 404
 
@@ -113,7 +113,7 @@ def test_unknown_api_path_404s_as_an_api_path(client):
 
 def _commit(client, **overrides):
     draft = {
-        "title": "t",
+        "summary": "t",
         "source_provider": "csv",
         "source_ref": overrides.pop("source_ref", "r1"),
     } | overrides
@@ -124,13 +124,13 @@ def test_watch_sections_and_scores(client):
     _commit(
         client,
         source_ref="worst",
-        title="Cert expired",
+        summary="Cert expired",
         criticality="critical",
         impact_size="xl",
         due_date="2026-07-20",
     )
-    _commit(client, source_ref="calm", title="Tidy docs", due_date="2026-12-01")
-    _commit(client, source_ref="stuck", title="Waiting on vendor", status="blocked")
+    _commit(client, source_ref="calm", summary="Tidy docs", due_date="2026-12-01")
+    _commit(client, source_ref="stuck", summary="Waiting on vendor", status="blocked")
 
     body = client.get("/api/watch", params={"today": "2026-07-26"}).json()
     sections = {s["key"]: s for s in body["sections"]}
@@ -139,15 +139,15 @@ def test_watch_sections_and_scores(client):
     assert body["weights"]["overdue"] == 5
 
     overdue = sections["overdue"]["items"]
-    assert [i["task"]["title"] for i in overdue] == ["Cert expired"]
+    assert [i["task"]["summary"] for i in overdue] == ["Cert expired"]
     assert overdue[0]["score"] == 5 + 4 + 5
     assert any("overdue" in r for r in overdue[0]["reasons"])
 
-    assert [i["task"]["title"] for i in sections["blocked"]["items"]] == ["Waiting on vendor"]
-    assert [i["task"]["title"] for i in sections["keep_an_eye_on"]["items"]] == ["Cert expired"]
+    assert [i["task"]["summary"] for i in sections["blocked"]["items"]] == ["Waiting on vendor"]
+    assert [i["task"]["summary"] for i in sections["keep_an_eye_on"]["items"]] == ["Cert expired"]
     # Far-future work belongs to no section.
     assert all(
-        "Tidy docs" not in [i["task"]["title"] for i in s["items"]] for s in body["sections"]
+        "Tidy docs" not in [i["task"]["summary"] for i in s["items"]] for s in body["sections"]
     )
 
 
@@ -165,11 +165,11 @@ def test_watch_excludes_done_work(client):
 
 
 def test_watch_sorts_by_score_descending(client):
-    _commit(client, source_ref="a", title="Low", criticality="low", due_date="2026-07-20")
+    _commit(client, source_ref="a", summary="Low", criticality="low", due_date="2026-07-20")
     _commit(
         client,
         source_ref="b",
-        title="High",
+        summary="High",
         criticality="critical",
         impact_size="xl",
         due_date="2026-07-20",
@@ -178,7 +178,7 @@ def test_watch_sorts_by_score_descending(client):
     items = client.get("/api/watch", params={"today": "2026-07-26"}).json()
     overdue = next(s for s in items["sections"] if s["key"] == "overdue")["items"]
 
-    assert [i["task"]["title"] for i in overdue] == ["High", "Low"]
+    assert [i["task"]["summary"] for i in overdue] == ["High", "Low"]
     assert overdue[0]["score"] > overdue[1]["score"]
 
 

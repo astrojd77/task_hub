@@ -10,6 +10,7 @@ optional integrations.
 - [Jira](#jira)
 - [Email](#email)
 - [Configuring fields and defaults](#configuring-fields-and-defaults)
+- [Field mapping](#field-mapping)
 - [Day-to-day commands](#day-to-day-commands)
 - [Changing the schema](#changing-the-schema)
 - [Deploying](#deploying)
@@ -270,11 +271,51 @@ and are fully user-defined. Add one on the Config tab and it appears as a
 dropdown in the review screens immediately. Values are stored per task in
 `tasks.custom_fields` and validated against the configured options at commit
 time. Mark one *required* and a blank value blocks commit, exactly like a blank
-title.
+summary.
 
 Deleting a custom field removes its definition and its defaults, but leaves
 values already written to existing tasks alone — deleting a definition should
 not silently rewrite history.
+
+### Field mapping
+
+Every import flow maps onto the same canonical fields, and the **Field mapping**
+panel is where you say how. Two halves per field, either usable alone:
+
+| Half | Means |
+| ---- | ----- |
+| **Read from** | which input feeds the field — a CSV column, a Jira field id, an email part |
+| **Value rules** | how that input's values translate, e.g. `Sev 1 → critical`, `Doing → in_progress` |
+
+Both are **overrides**. Anything left blank falls back to the adapter's own
+header aliases and value tables, so an unconfigured install still imports
+sensibly and a mapping only has to describe what differs.
+
+The "read from" choices come from the adapter itself, so nobody has to remember
+that Severity is `customfield_10042`:
+
+| Flow | Offers | Notes |
+| ---- | ------ | ----- |
+| CSV | the file's columns, with a sample value each | load a sample file to populate the list |
+| Jira | stock fields plus this instance's custom fields | discovered live; falls back to the stock list if Jira is unreachable |
+| Email | subject, body, sender, to, cc, sent date, Message-ID, filename | with this file's values as samples |
+
+A worked example — a CSV using entirely in-house column names and vocabulary:
+
+```
+Ticket,Headline,Notes,Workflow,Sev,Blast,Deadline,DRI,Stream,Kind
+OPS-1,Rotate signing cert,Expires soon,Doing,Sev 1,Massive,2026-08-01,ana,Platform,Defect
+```
+
+Map `summary ← Headline`, `status ← Workflow` with `Doing → in_progress`,
+`impact_size ← Blast` with `Massive → xl`, and a custom `Type ← Kind` with
+`Defect → bug`. Every subsequent import of that shape is one click, with no
+warnings and no code change.
+
+Mappings are **per flow**: configuring CSV leaves Jira and email untouched.
+
+An unmapped value still **warns rather than being guessed at** — a blank field
+the reviewer can see beats a wrong one they cannot.
 
 ### Per-flow defaults
 

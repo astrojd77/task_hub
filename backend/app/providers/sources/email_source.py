@@ -21,6 +21,27 @@ from typing import Any
 from app.providers.base import ProviderError, RawItem, UploadedFile
 from app.providers.registry import source
 from app.schemas.task import DraftTask
+from app.services.source_mapping import EMPTY_MAPPING, mapping_from_config
+
+#: Canonical field -> the parsed email part that feeds it by default. Every one
+#: is remappable: a team whose convention is "the due date is in the subject"
+#: can point summary at the body and description at the subject instead.
+DEFAULT_INPUTS: dict[str, str] = {
+    "summary": "subject",
+    "description": "body",
+}
+
+#: What an email can feed a field *from*. The mapping screen offers these.
+INPUT_LABELS: dict[str, str] = {
+    "subject": "Subject",
+    "body": "Body (plain text, HTML stripped)",
+    "from": "Sender",
+    "to": "To",
+    "cc": "Cc",
+    "sent": "Sent date",
+    "message_id": "Message-ID",
+    "filename": "File name",
+}
 
 _HTML_TAGS = re.compile(r"<[^>]+>")
 _WHITESPACE = re.compile(r"\n{3,}")
@@ -56,39 +77,80 @@ class EmailSource:
             "review_style": "modal",
         }
 
+    def mappable_inputs(self, config: dict[str, Any]) -> list[dict[str, Any]]:
+        """The parts of a parsed email, with this file's values as hints."""
+        upload = config.get("file")
+        parsed: dict[str, Any] = {}
+        if isinstance(upload, UploadedFile):
+            try:
+                parsed = self._parse(upload)
+            except ProviderError:
+                parsed = {}
+
+        return [
+            {
+                "key": key,
+                "label": label,
+                "hint": _preview(parsed.get(key)),
+            }
+            for key, label in INPUT_LABELS.items()
+        ]
+
+    def _parse(self, upload: UploadedFile) -> dict:
+        name = (upload.filename or "").lower()
+        if name.endswith(".msg"):
+            return _parse_msg(upload.content, upload.filename)
+        if name.endswith(".eml"):
+            return _parse_eml(upload.content, upload.filename)
+        # Extension is the only reliable signal — .msg is OLE2 and .eml is
+        # RFC822, and browsers give inconsistent MIME types for both.
+        raise ProviderError(f"{upload.filename!r} is not a .msg or .eml file")
+
     def fetch(self, config: dict[str, Any]) -> list[RawItem]:
         upload = config.get("file")
         if not isinstance(upload, UploadedFile):
             raise ProviderError("no email file was provided")
 
-        name = (upload.filename or "").lower()
-        if name.endswith(".msg"):
-            parsed = _parse_msg(upload.content, upload.filename)
-        elif name.endswith(".eml"):
-            parsed = _parse_eml(upload.content, upload.filename)
-        else:
-            # Extension is the only reliable signal we have — .msg is OLE2 and
-            # .eml is RFC822, and browsers give inconsistent MIME types for both.
-            raise ProviderError(f"{upload.filename!r} is not a .msg or .eml file")
-
+        parsed = self._parse(upload)
+        parsed["_mapping"] = mapping_from_config(config)
         return [RawItem(source_ref=parsed["source_ref"], payload=parsed)]
 
     def to_draft(self, raw: RawItem) -> DraftTask:
         parsed = raw.payload
+        mapping = parsed.get("_mapping") or EMPTY_MAPPING
         warnings: list[str] = list(parsed.get("warnings") or [])
 
-        if not parsed.get("subject"):
-            warnings.append("the email has no subject — give this task a title")
+        def part(field_key: str) -> str | None:
+            source = mapping.input_for(field_key, DEFAULT_INPUTS.get(field_key))
+            value = parsed.get(source) if source else None
+            return str(value).strip() if value not in (None, "") else None
+
+        summary = part("summary")
+        if not summary:
+            warnings.append("the email has no subject — give this task a summary")
         # Emails essentially never carry a due date, so this is a nudge rather
         # than a defect in the parse.
         warnings.append("emails carry no due date, criticality or impact — set them below")
 
+        # Anything else the mapping points at — including custom fields —
+        # reads from the same parsed parts.
+        custom: dict[str, str] = {}
+        for field_key, field_mapping in mapping.fields.items():
+            if field_key in DEFAULT_INPUTS or not field_mapping.source_expr:
+                continue
+            native = parsed.get(field_mapping.source_expr)
+            if native in (None, ""):
+                continue
+            translated, matched = mapping.translate(field_key, str(native))
+            custom[field_key] = translated if matched else str(native)
+
         return DraftTask(
-            title=(parsed.get("subject") or "").strip(),
-            description=parsed.get("body"),
+            summary=summary or "",
+            description=part("description"),
+            custom_fields=custom,
             source_provider=self.id,
             source_ref=raw.source_ref,
-            raw_payload=parsed,
+            raw_payload={k: v for k, v in parsed.items() if k != "_mapping"},
             warnings=warnings,
         )
 
@@ -299,3 +361,11 @@ def _resolve_ref(message_id: str, content: bytes, filename: str | None) -> tuple
         "this email has no Message-ID, so it is keyed by file contents — "
         "re-saving it from Outlook may import it a second time",
     )
+
+
+def _preview(value: Any) -> str | None:
+    """A short sample of a parsed part, so the mapping screen shows real data."""
+    if value in (None, ""):
+        return None
+    text = " ".join(str(value).split())
+    return text[:60] + "…" if len(text) > 60 else text

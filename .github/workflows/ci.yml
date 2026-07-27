@@ -107,13 +107,13 @@ jobs:
 
           db = SessionLocal()
           result = commit_drafts(db, [TaskCommitIn(
-              title="CI smoke", source_provider="csv", source_ref="ci-1",
+              summary="CI smoke", source_provider="csv", source_ref="ci-1",
               due_date=date(2026, 1, 1), labels=["ci"],
           )])
           assert result.created == 1, result
           # Re-commit must update, not duplicate.
           again = commit_drafts(db, [TaskCommitIn(
-              title="CI smoke", source_provider="csv", source_ref="ci-1",
+              summary="CI smoke", source_provider="csv", source_ref="ci-1",
           )])
           assert (again.created, again.updated) == (0, 1), again
           print("commit + idempotency OK against the Flyway schema")

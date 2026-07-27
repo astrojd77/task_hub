@@ -25,11 +25,12 @@ from app.core.parsing import clean_text, parse_date, split_labels
 from app.providers.base import ProviderError, RawItem, UploadedFile
 from app.providers.registry import source
 from app.schemas.task import DraftTask
+from app.services.source_mapping import EMPTY_MAPPING, mapping_from_config, translate_enum
 
 #: Canonical field -> header spellings we will auto-map on upload. The user can
 #: always override the suggestion in the mapping UI.
 COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
-    "title": ("title", "summary", "name", "task", "subject", "item", "work item"),
+    "summary": ("summary", "title", "name", "task", "subject", "item", "work item"),
     "description": ("description", "details", "detail", "notes", "note", "body", "comments"),
     "status": ("status", "state", "stage"),
     "priority": ("priority", "urgency", "prio"),
@@ -266,15 +267,44 @@ class CsvSource:
             "suggested_mapping": suggest_mapping(columns),
         }
 
+    def mappable_inputs(self, config: dict[str, Any]) -> list[dict[str, Any]]:
+        """The uploaded file's columns, with a sample value each.
+
+        Only knowable once a file is in hand, which is why the mapping screen
+        lets you save the mapping straight from the import flow — that is the
+        moment the real column names are on screen.
+        """
+        upload = config.get("file")
+        if not isinstance(upload, UploadedFile):
+            return []
+
+        columns, rows = read_csv(upload.content)
+        first = rows[0] if rows else {}
+        return [
+            {"key": column, "label": column, "hint": clean_text(first.get(column))}
+            for column in columns
+        ]
+
     def fetch(self, config: dict[str, Any]) -> list[RawItem]:
         upload = config.get("file")
         if not isinstance(upload, UploadedFile):
             raise ProviderError("no CSV file was provided")
 
         columns, rows = read_csv(upload.content)
-        mapping = config.get("mapping") or suggest_mapping(columns)
-        # Ignore mappings pointing at columns this file does not have.
-        mapping = {f: c for f, c in mapping.items() if c in columns and f in COLUMN_ALIASES}
+        # Three layers, most specific first: what this request asked for, then
+        # the mapping saved for the CSV flow, then header auto-detection. The
+        # saved layer is what makes a recurring import a one-click job.
+        saved = mapping_from_config(config)
+        saved_columns = {
+            field_key: mapping.source_expr
+            for field_key, mapping in saved.fields.items()
+            if mapping.source_expr
+        }
+        mapping = config.get("mapping") or saved_columns or suggest_mapping(columns)
+        # Drop anything pointing at a column this file does not have. Custom
+        # field keys are kept: the adapter does not know what "type" is, only
+        # that something asked for a column, and _custom_fields sorts it out.
+        mapping = {f: c for f, c in mapping.items() if c in columns}
 
         ref_column = mapping.get("source_ref")
         items: list[RawItem] = []
@@ -286,6 +316,7 @@ class CsvSource:
                     payload={
                         "row": row,
                         "mapping": mapping,
+                        "configured": saved,
                         "ref_from": "column" if explicit_ref else "row-hash",
                     },
                 )
@@ -295,6 +326,7 @@ class CsvSource:
     def to_draft(self, raw: RawItem) -> DraftTask:
         row: dict[str, str] = raw.payload["row"]
         mapping: dict[str, str] = raw.payload["mapping"]
+        configured = raw.payload.get("configured") or EMPTY_MAPPING
         warnings: list[str] = []
 
         def cell(field: str) -> str | None:
@@ -302,17 +334,12 @@ class CsvSource:
             return clean_text(row.get(column)) if column else None
 
         def to_enum(field: str, table: dict, label: str):
-            value = cell(field)
-            if value is None:
-                return None
-            match = table.get(value.strip().lower())
-            if match is None:
-                warnings.append(f"{label} {value!r} is not on the scale — set it manually")
-            return match
+            # Configured value rules win; the tables above fill the gaps.
+            return translate_enum(configured, field, cell(field), table, label, warnings)
 
-        title = cell("title")
-        if title is None:
-            warnings.append("no title in this row — required before commit")
+        summary = cell("summary")
+        if summary is None:
+            warnings.append("no summary in this row — required before commit")
 
         due_date, date_warning = parse_date(cell("due_date"))
         if date_warning:
@@ -322,7 +349,7 @@ class CsvSource:
         priority = to_enum("priority", _PRIORITY_VALUES, "priority")
 
         return DraftTask(
-            title=title or "",
+            summary=summary or "",
             description=cell("description"),
             status=status or TaskStatus.TODO,
             priority=priority or Priority.MEDIUM,
@@ -332,8 +359,27 @@ class CsvSource:
             assignee=cell("assignee"),
             project=cell("project"),
             labels=split_labels(cell("labels")),
+            custom_fields=self._custom_fields(row, mapping, configured, warnings),
             source_provider=self.id,
             source_ref=raw.source_ref,
             raw_payload=row,
             warnings=warnings,
         )
+
+    @staticmethod
+    def _custom_fields(row, mapping, configured, warnings) -> dict[str, str]:
+        """Any mapped field that is not one of ours is a configured custom field.
+
+        The adapter does not need to know what Type or Platform are — only that
+        something asked for a column and that column is not a canonical field.
+        """
+        values: dict[str, str] = {}
+        for field_key, column in mapping.items():
+            if field_key in COLUMN_ALIASES:
+                continue
+            native = clean_text(row.get(column))
+            if native is None:
+                continue
+            translated, matched = configured.translate(field_key, native)
+            values[field_key] = translated if matched else native
+        return values

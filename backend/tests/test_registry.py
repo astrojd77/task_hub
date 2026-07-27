@@ -92,7 +92,7 @@ def test_local_push_reports_the_task_id(db):
 
     task = TaskOut(
         id="abc-123",
-        title="t",
+        summary="t",
         description=None,
         status="todo",
         priority="medium",

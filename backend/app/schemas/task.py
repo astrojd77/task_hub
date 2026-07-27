@@ -30,7 +30,7 @@ class DraftTask(BaseModel):
     # and only surface as a serialisation warning.
     model_config = ConfigDict(extra="ignore", validate_assignment=True)
 
-    title: str = ""
+    summary: str = ""
     description: str | None = None
     status: TaskStatus = TaskStatus.TODO
     priority: Priority = Priority.MEDIUM
@@ -62,15 +62,15 @@ class DraftTask(BaseModel):
 class TaskCommitIn(DraftTask):
     """A draft the user has reviewed and is asking the server to persist."""
 
-    title: str = Field(min_length=1, max_length=500)
+    summary: str = Field(min_length=1, max_length=500)
     destination: str | None = None
 
-    @field_validator("title")
+    @field_validator("summary")
     @classmethod
     def _title_not_blank(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError("title must not be blank")
+            raise ValueError("summary must not be blank")
         return v
 
     @field_validator("source_provider", "source_ref")
@@ -92,7 +92,7 @@ class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    title: str
+    summary: str
     description: str | None
     status: TaskStatus
     priority: Priority

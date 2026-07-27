@@ -56,7 +56,7 @@ owns them.
   *original* row — never the reviewed values, or editing then re-importing
   would duplicate. Jira uses the issue key, email the `Message-ID`.
 - **Validation is server-authoritative.** The UI must never be the only gate.
-  Blank title and off-scale enums are 422s; missing due date or criticality are
+  Blank summary and off-scale enums are 422s; missing due date or criticality are
   warnings returned alongside the committed tasks.
 - **Never let a task loop back into the system it came from** as a *new* item
   (`app/services/routing.py:check_push_allowed`). Updating the original is fine.
@@ -66,6 +66,11 @@ owns them.
   impact_size) may be relabelled, reordered and subset, but a *new value* must
   never be addable: the watch weights and every adapter's mapping table key off
   those values. Custom fields have no such coupling and are fully user-defined.
+- **Mapping is an override, never a replacement.** `services/source_mapping.py`
+  resolves which input feeds a field and how its values translate; an adapter's
+  built-in aliases and value tables still fill every gap, so an unconfigured
+  install imports sensibly. Precedence is request mapping > saved mapping >
+  adapter detection.
 - **Per-source defaults fill blanks only.** A default must never overwrite a
   value the source actually supplied, and every applied default is announced on
   the draft so the reviewer knows it was configuration talking.
@@ -90,7 +95,7 @@ owns them.
 ## Commands
 
 ```bash
-cd backend && .venv/bin/python -m pytest       # 206 tests, no network needed
+cd backend && .venv/bin/python -m pytest       # 233 tests, no network needed
 cd backend && .venv/bin/ruff check app tests
 cd frontend && npm run build                   # tsc -b && vite build
 ./scripts/migrate.sh                           # Flyway, dialect from DATABASE_URL

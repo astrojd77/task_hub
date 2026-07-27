@@ -84,7 +84,7 @@ export function TasksView({
               <tbody>
                 {tasks.map((t) => (
                   <tr key={t.id} className="clickable" onClick={() => setSelected(t)}>
-                    <td>{t.title}</td>
+                    <td>{t.summary}</td>
                     <td>
                       <span className="pill">{t.status}</span>
                     </td>

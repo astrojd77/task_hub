@@ -13,7 +13,7 @@ TODAY = date(2026, 7, 26)
 def task(**overrides) -> Task:
     base = {
         "id": overrides.pop("id", "t1"),
-        "title": "t",
+        "summary": "t",
         "status": "todo",
         "priority": "medium",
         "criticality": None,

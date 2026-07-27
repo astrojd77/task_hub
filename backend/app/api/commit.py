@@ -17,7 +17,7 @@ def commit(payload: CommitRequest, db: Session = Depends(get_db)) -> CommitResul
     """Validate reviewed drafts and upsert them.
 
     FastAPI rejects the request outright if a draft fails schema validation
-    (blank title, bad enum value). Softer problems — a missing due date, an
+    (blank summary, bad enum value). Softer problems — a missing due date, an
     unset criticality — come back as warnings alongside the committed tasks.
     """
     return commit_drafts(db, payload.drafts, payload.default_destination)

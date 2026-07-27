@@ -33,7 +33,7 @@ def test_drafts_endpoint_parses_without_persisting(client):
 
     assert body["source_provider"] == "csv"
     assert len(body["drafts"]) == 2
-    assert body["meta"]["mapping"]["title"] == "Summary"
+    assert body["meta"]["mapping"]["summary"] == "Summary"
     # Nothing has been committed.
     assert client.get("/api/tasks").json() == []
 
@@ -52,7 +52,7 @@ def test_full_milestone_import_review_commit_reimport(client):
 
     tasks = client.get("/api/tasks").json()
     assert len(tasks) == 2
-    assert {t["title"] for t in tasks} == {"Rotate signing cert", "Upgrade node pool"}
+    assert {t["summary"] for t in tasks} == {"Rotate signing cert", "Upgrade node pool"}
     assert {t["criticality"] for t in tasks} == {"critical", "low"}
 
     # Re-import the same file: still two tasks, now updates rather than creates.
@@ -68,7 +68,7 @@ def test_reimport_prefills_reviewed_fields_and_says_so(client):
     client.post("/api/commit", json={"drafts": drafts})
 
     reimported = post_csv(client).json()["drafts"]
-    first = next(d for d in reimported if d["title"] == "Rotate signing cert")
+    first = next(d for d in reimported if d["summary"] == "Rotate signing cert")
 
     assert first["existing_task_id"] is not None
     assert first["criticality"] == "critical"
@@ -101,7 +101,7 @@ def test_changed_row_without_an_id_column_is_a_new_item(client):
 
     edited = SAMPLE.replace("Rotate signing cert", "Rotate signing certificate")
     reimported = post_csv(client, edited).json()["drafts"]
-    changed = next(d for d in reimported if "certificate" in d["title"])
+    changed = next(d for d in reimported if "certificate" in d["summary"])
 
     assert changed["existing_task_id"] is None
 
@@ -114,9 +114,9 @@ def test_partial_selection_only_commits_chosen_rows(client):
     assert len(client.get("/api/tasks").json()) == 1
 
 
-def test_committing_a_draft_with_no_title_is_rejected(client):
+def test_committing_a_draft_with_no_summary_is_rejected(client):
     drafts = post_csv(client, "Summary,Owner\n,ana\n").json()["drafts"]
-    assert drafts[0]["title"] == ""
+    assert drafts[0]["summary"] == ""
 
     assert client.post("/api/commit", json={"drafts": drafts}).status_code == 422
     assert client.get("/api/tasks").json() == []
@@ -124,9 +124,9 @@ def test_committing_a_draft_with_no_title_is_rejected(client):
 
 def test_explicit_mapping_is_honoured_by_the_endpoint(client):
     text = "alpha,beta\nfirst,second\n"
-    body = post_csv(client, text, {"mapping": {"title": "beta"}}).json()
+    body = post_csv(client, text, {"mapping": {"summary": "beta"}}).json()
 
-    assert body["drafts"][0]["title"] == "second"
+    assert body["drafts"][0]["summary"] == "second"
 
 
 def test_unknown_source_is_404(client):

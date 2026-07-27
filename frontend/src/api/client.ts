@@ -7,6 +7,7 @@ import type {
   Health,
   DestinationResolution,
   FieldConfig,
+  MappableInput,
   Providers,
   PushResult,
   Route,
@@ -118,6 +119,28 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(field),
     }),
+  saveMappings: (
+    sourceProvider: string,
+    mappings: Record<string, { source_expr: string | null; value_map: Record<string, string> }>,
+  ) =>
+    request<unknown>('/config/mappings', {
+      method: 'PUT',
+      body: JSON.stringify({ source_provider: sourceProvider, mappings }),
+    }),
+
+  /**
+   * Ask a source what it can feed a field from. POST because CSV cannot answer
+   * without the file — its inputs are that file's columns.
+   */
+  mappableInputs: async (sourceId: string, file?: File | null): Promise<MappableInput[]> => {
+    const form = new FormData()
+    if (file) form.append('file', file)
+    form.append('config', '{}')
+    const res = await fetch(`/api/sources/${sourceId}/inputs`, { method: 'POST', body: form })
+    if (!res.ok) return []
+    return res.json() as Promise<MappableInput[]>
+  },
+
   deleteField: (fieldKey: string) =>
     request<void>(`/config/fields/${fieldKey}`, { method: 'DELETE' }),
   setDefault: (sourceProvider: string, fieldKey: string, value: string | null) =>

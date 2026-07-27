@@ -454,7 +454,7 @@ ul.watch-list li:hover {
   min-width: 0;
 }
 
-.watch-title {
+.watch-summary {
   font-weight: 500;
 }
 
@@ -709,4 +709,48 @@ code {
 
 button.linkish.danger {
   color: var(--danger);
+}
+
+/* --------------------------------------------------------------- mapping */
+
+.mapping-table td {
+  vertical-align: top;
+}
+
+.mapping-table td:first-child {
+  min-width: 150px;
+}
+
+.mapping-table select,
+.mapping-table input {
+  min-width: 160px;
+}
+
+.value-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.value-rule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.value-rule input {
+  min-width: 130px;
+}
+
+.value-rule select {
+  min-width: 110px;
+}
+
+.value-rule span {
+  color: var(--muted);
+}
+
+.file-pick {
+  cursor: pointer;
 }

@@ -105,7 +105,7 @@ def test_draft_carries_the_canonical_shape():
     source = src()
     draft = source.to_draft(source.fetch({"issue_key": "OPS-1"})[0])
 
-    assert draft.title == "Rotate signing cert"
+    assert draft.summary == "Rotate signing cert"
     assert draft.status == "in_progress"
     assert draft.priority == "high"
     assert draft.due_date == date(2026, 8, 1)

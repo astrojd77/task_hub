@@ -1,8 +1,9 @@
-"""User-configurable dropdown fields and per-source defaults.
+"""User-configurable fields, per-source mappings and per-source defaults.
 
-Two tables, two jobs:
+Three tables, three jobs:
 
 ``FieldConfig``    what options a dropdown offers, and what it is called.
+``SourceMapping``  which input feeds a field, and how its values translate.
 ``SourceDefault``  what an import flow pre-fills before the user reviews it.
 
 Fields come in two kinds:
@@ -49,7 +50,7 @@ class FieldConfig(Base):
     #: Hidden from the review UI and the filters when false. Builtin fields are
     #: never truly removed; the column still exists and still validates.
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    #: Blocks commit when unset, the same way a blank title does.
+    #: Blocks commit when unset, the same way a blank summary does.
     is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -97,3 +98,39 @@ class SourceDefault(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"<SourceDefault {self.source_provider}.{self.field_key}={self.value!r}>"
+
+
+class SourceMapping(Base):
+    """How one import flow feeds one canonical field.
+
+    Two halves, either of which may be used alone:
+
+    ``source_expr``  which input feeds the field. What the string *means* is the
+                     adapter's business — a CSV column header, a Jira field id,
+                     an email part. Core never interprets it.
+    ``value_map``    how that input's values translate into canonical ones,
+                     e.g. ``{"sev 1": "critical"}``. Keys are lowercased on the
+                     way in so matching is case-insensitive.
+
+    Both are overrides. An adapter's built-in aliases and value tables still
+    apply wherever configuration is silent, so a fresh install works with no
+    mapping configured at all.
+    """
+
+    __tablename__ = "source_mappings"
+    __table_args__ = (UniqueConstraint("source_provider", "field_key", name="uq_source_mappings"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
+
+    source_provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    field_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_expr: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    value_map: Mapped[dict] = mapped_column(PortableJSON, nullable=False, default=dict)
+
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, default=utcnow, onupdate=utcnow
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<SourceMapping {self.source_provider}.{self.field_key} <- {self.source_expr!r}>"

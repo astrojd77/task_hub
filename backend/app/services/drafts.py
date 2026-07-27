@@ -16,6 +16,7 @@ from app.models.task import Task
 from app.providers.base import ProviderError, SourceProvider
 from app.schemas.task import DraftBatch, DraftTask
 from app.services.field_config import apply_defaults
+from app.services.source_mapping import MAPPING_CONFIG_KEY, resolve
 
 #: Fields a user typically fills in during review and that sources rarely
 #: supply. If a re-import leaves one blank, we put the previously reviewed
@@ -32,6 +33,11 @@ def build_batch(
     provider: SourceProvider,
     config: dict[str, Any],
 ) -> DraftBatch:
+    # Hand the adapter its configured mapping. Adapters treat it as an
+    # override: their built-in aliases and value tables still fill the gaps, so
+    # an unconfigured install imports sensibly.
+    config = {**config, MAPPING_CONFIG_KEY: resolve(db, provider.id)}
+
     items = provider.fetch(config)
     drafts = [provider.to_draft(item) for item in items]
 

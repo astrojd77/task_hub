@@ -80,7 +80,7 @@ class JiraDestination:
     def _fields_for(self, task: TaskOut, *, include_project: bool) -> dict:
         settings = get_settings()
         fields: dict[str, Any] = {
-            "summary": task.title[:255],
+            "summary": task.summary[:255],
             "description": text_to_adf(task.description),
         }
 

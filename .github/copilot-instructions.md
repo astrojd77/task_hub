@@ -62,6 +62,13 @@ owns them.
   (`app/services/routing.py:check_push_allowed`). Updating the original is fine.
 - **`local` is always an available destination**, even when config omits it,
   or a commit would have nowhere to go.
+- **Configurable fields.** Builtin scales (status, priority, criticality,
+  impact_size) may be relabelled, reordered and subset, but a *new value* must
+  never be addable: the watch weights and every adapter's mapping table key off
+  those values. Custom fields have no such coupling and are fully user-defined.
+- **Per-source defaults fill blanks only.** A default must never overwrite a
+  value the source actually supplied, and every applied default is announced on
+  the draft so the reviewer knows it was configuration talking.
 - **Oracle portability** governs every schema decision — see
   `.github/instructions/database.instructions.md`.
 - **Do not add heavy dependencies** or change the DB/ORM/auth approach without
@@ -83,7 +90,7 @@ owns them.
 ## Commands
 
 ```bash
-cd backend && .venv/bin/python -m pytest       # 174 tests, no network needed
+cd backend && .venv/bin/python -m pytest       # 206 tests, no network needed
 cd backend && .venv/bin/ruff check app tests
 cd frontend && npm run build                   # tsc -b && vite build
 ./scripts/migrate.sh                           # Flyway, dialect from DATABASE_URL

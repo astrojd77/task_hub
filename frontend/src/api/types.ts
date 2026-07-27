@@ -17,6 +17,8 @@ export interface Task {
   assignee: string | null
   project: string | null
   labels: string[]
+  /** Values for user-configured custom fields, keyed by field_key. */
+  custom_fields: Record<string, string>
   source_provider: string
   source_ref: string
   external_refs: Record<string, string>
@@ -37,6 +39,7 @@ export interface DraftTask {
   assignee: string | null
   project: string | null
   labels: string[]
+  custom_fields: Record<string, string>
   source_provider: string
   source_ref: string
   raw_payload: Record<string, unknown> | null
@@ -152,6 +155,41 @@ export interface PushResult {
   url: string | null
   action: 'created' | 'updated'
   task: Task
+}
+
+export interface FieldOption {
+  value: string
+  label: string | null
+}
+
+export interface FieldConfig {
+  field_key: string
+  label: string
+  /** 'builtin' is backed by a real Task column; 'custom' lives in custom_fields. */
+  kind: 'builtin' | 'custom'
+  options: FieldOption[]
+  enabled: boolean
+  is_required: boolean
+  sort_order: number
+  /**
+   * Builtin scales can be relabelled, reordered and subset, but their value
+   * set is fixed — the watch weights and the adapter mappings key off it.
+   */
+  values_locked: boolean
+}
+
+export interface SourceDefault {
+  source_provider: string
+  field_key: string
+  value: string
+}
+
+export interface AppConfig {
+  fields: FieldConfig[]
+  defaults: SourceDefault[]
+  sources: string[]
+  /** Defaultable but not dropdowns, e.g. project and assignee. */
+  defaultable_extra_keys: string[]
 }
 
 export interface Health {

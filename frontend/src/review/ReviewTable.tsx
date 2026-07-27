@@ -1,4 +1,4 @@
-import type { DraftTask, EnumCatalog } from '../api/types'
+import type { DraftTask, EnumCatalog, FieldConfig } from '../api/types'
 
 /**
  * The review surface. Source-agnostic on purpose: phases 4 and 5 (Jira, email)
@@ -33,6 +33,8 @@ export function isCommittable(draft: DraftTask): boolean {
 interface Props {
   drafts: DraftTask[]
   enums: EnumCatalog
+  /** User-configured dropdowns from the Config screen; one column each. */
+  customFields?: FieldConfig[]
   selected: Set<number>
   onToggle: (index: number) => void
   onToggleAll: (checked: boolean) => void
@@ -42,6 +44,7 @@ interface Props {
 export function ReviewTable({
   drafts,
   enums,
+  customFields = [],
   selected,
   onToggle,
   onToggleAll,
@@ -71,6 +74,12 @@ export function ReviewTable({
             <th>Criticality</th>
             <th>Impact</th>
             <th>Due</th>
+            {customFields.map((f) => (
+              <th key={f.field_key}>
+                {f.label}
+                {f.is_required && ' *'}
+              </th>
+            ))}
             <th>Labels</th>
           </tr>
         </thead>
@@ -143,6 +152,19 @@ export function ReviewTable({
                     onChange={(e) => onChange(i, { due_date: e.target.value || null })}
                   />
                 </td>
+                {customFields.map((field) => (
+                  <EnumCell
+                    key={field.field_key}
+                    options={field.options.map((o) => o.value)}
+                    value={draft.custom_fields[field.field_key] ?? null}
+                    allowBlank
+                    onChange={(v) =>
+                      onChange(i, {
+                        custom_fields: { ...draft.custom_fields, [field.field_key]: v },
+                      })
+                    }
+                  />
+                ))}
                 <td>
                   <input
                     value={draft.labels.join(', ')}

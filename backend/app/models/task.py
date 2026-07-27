@@ -70,6 +70,12 @@ class Task(Base):
 
     labels: Mapped[list[str]] = mapped_column(PortableJSON, nullable=False, default=list)
 
+    #: Values for user-configured custom fields (Type, Platform, …), keyed by
+    #: FieldConfig.field_key. Lives here rather than as columns so adding a
+    #: field needs no migration — see app/models/config.py for the trade-off.
+    #: Never filter *inside* this on Oracle, where it is a CLOB.
+    custom_fields: Mapped[dict] = mapped_column(PortableJSON, nullable=False, default=dict)
+
     # Kept short so the composite unique index stays well inside Oracle's
     # index-key byte limit under AL32UTF8.
     source_provider: Mapped[str] = mapped_column(String(32), nullable=False)

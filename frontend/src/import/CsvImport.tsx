@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { api } from '../api/client'
 import type { CommitResult, DraftBatch, DraftTask, EnumCatalog } from '../api/types'
+import { useFieldConfig } from '../config/useFieldConfig'
 import { ReviewTable, isCommittable } from '../review/ReviewTable'
 
 /**
@@ -13,11 +14,14 @@ import { ReviewTable, isCommittable } from '../review/ReviewTable'
  */
 export function CsvImport({
   enums,
+  configRevision = 0,
   onCommitted,
 }: {
   enums: EnumCatalog
+  configRevision?: number
   onCommitted: () => void
 }) {
+  const { customFields } = useFieldConfig(configRevision)
   const [file, setFile] = useState<File | null>(null)
   const [batch, setBatch] = useState<DraftBatch | null>(null)
   const [drafts, setDrafts] = useState<DraftTask[]>([])
@@ -159,6 +163,7 @@ export function CsvImport({
           <ReviewTable
             drafts={drafts}
             enums={enums}
+            customFields={customFields}
             selected={selected}
             onToggle={(i) =>
               setSelected((s) => {

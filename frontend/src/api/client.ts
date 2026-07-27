@@ -1,10 +1,12 @@
 import type {
+  AppConfig,
   CommitResult,
   DraftBatch,
   DraftTask,
   EnumCatalog,
   Health,
   DestinationResolution,
+  FieldConfig,
   Providers,
   PushResult,
   Route,
@@ -108,6 +110,25 @@ export const api = {
   watch: (query?: TaskQuery) => request<WatchOut>(`/watch${toQueryString(query)}`),
   deleteTask: (id: string) =>
     request<void>(`/tasks/${id}`, { method: 'DELETE' }),
+
+  // -- field configuration -------------------------------------------
+  config: () => request<AppConfig>('/config'),
+  saveField: (field: Omit<FieldConfig, 'kind' | 'values_locked'>) =>
+    request<FieldConfig>(`/config/fields/${field.field_key}`, {
+      method: 'PUT',
+      body: JSON.stringify(field),
+    }),
+  deleteField: (fieldKey: string) =>
+    request<void>(`/config/fields/${fieldKey}`, { method: 'DELETE' }),
+  setDefault: (sourceProvider: string, fieldKey: string, value: string | null) =>
+    request<unknown>('/config/defaults', {
+      method: 'PUT',
+      body: JSON.stringify({
+        source_provider: sourceProvider,
+        field_key: fieldKey,
+        value,
+      }),
+    }),
 
   // -- routing (phase 6) --------------------------------------------
   routes: () => request<Route[]>('/routes'),

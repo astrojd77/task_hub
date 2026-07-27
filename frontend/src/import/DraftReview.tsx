@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { CommitResult, DraftBatch, DraftTask, EnumCatalog } from '../api/types'
+import { useFieldConfig } from '../config/useFieldConfig'
 import { ReviewModal } from '../review/ReviewModal'
 import { ReviewTable, isCommittable } from '../review/ReviewTable'
 
@@ -15,11 +16,13 @@ import { ReviewTable, isCommittable } from '../review/ReviewTable'
 export function DraftReview({
   batch,
   enums,
+  configRevision = 0,
   onCommitted,
   onDismiss,
 }: {
   batch: DraftBatch
   enums: EnumCatalog
+  configRevision?: number
   onCommitted: (result: CommitResult) => void
   onDismiss: () => void
 }) {
@@ -27,6 +30,7 @@ export function DraftReview({
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { customFields } = useFieldConfig(configRevision)
 
   useEffect(() => {
     setDrafts(batch.drafts)
@@ -72,6 +76,7 @@ export function DraftReview({
         <ReviewModal
           draft={drafts[0]}
           enums={enums}
+          customFields={customFields}
           busy={busy}
           onChange={(patch) => edit(0, patch)}
           onCommit={() => void commit([drafts[0]])}
@@ -105,6 +110,7 @@ export function DraftReview({
       <ReviewTable
         drafts={drafts}
         enums={enums}
+        customFields={customFields}
         selected={selected}
         onToggle={(i) =>
           setSelected((s) => {

@@ -9,6 +9,7 @@ optional integrations.
 - [Configuration](#configuration)
 - [Jira](#jira)
 - [Email](#email)
+- [Configuring fields and defaults](#configuring-fields-and-defaults)
 - [Day-to-day commands](#day-to-day-commands)
 - [Changing the schema](#changing-the-schema)
 - [Deploying](#deploying)
@@ -241,6 +242,58 @@ some Outlook saves) fall back to a hash of the file contents, and the review
 screen says so — that key is only as stable as the bytes on disk.
 
 Attachments are counted and named in `raw_payload`, not extracted.
+
+---
+
+## Configuring fields and defaults
+
+The **Config** tab is the admin screen for dropdowns and import defaults. No
+restart or migration is needed for anything on it.
+
+### Fields
+
+Builtin scales — status, priority, criticality, impact — can be **relabelled,
+reordered and subset**. If your organisation says "Sev 1" rather than
+"critical", rename it here and every dropdown and filter follows.
+
+Their underlying *values* are fixed. Two things key off them:
+
+* the watch score's weight tables (`app/services/watch.py`)
+* every adapter's mapping table (`Sev 1 -> critical`, `P0 -> urgent`, …)
+
+An invented value would score zero and map from nothing, so adding one is a
+code change that also updates those. The API refuses it rather than letting it
+degrade silently.
+
+**Custom fields** — Type, Platform, whatever you need — have neither coupling
+and are fully user-defined. Add one on the Config tab and it appears as a
+dropdown in the review screens immediately. Values are stored per task in
+`tasks.custom_fields` and validated against the configured options at commit
+time. Mark one *required* and a blank value blocks commit, exactly like a blank
+title.
+
+Deleting a custom field removes its definition and its defaults, but leaves
+values already written to existing tasks alone — deleting a definition should
+not silently rewrite history.
+
+### Per-flow defaults
+
+Each import flow gets its own defaults. A typical setup:
+
+| Flow | Why |
+| ---- | --- |
+| Email | Emails carry nothing but a subject and a body, so default Type=Request, Platform=Unknown, Project=<your team> |
+| CSV | Usually richer, so fewer defaults are needed |
+| Jira | Defaults fill only the gaps Jira has no field for |
+
+Defaults are applied **before review** and **only where the source left the
+field blank** — a source is authoritative for what it actually knows, so a
+default never overwrites a real value. Every applied default is announced in
+the draft's warnings, so the reviewer can see it was configuration talking
+rather than the source, and can change it before committing.
+
+`project` and `assignee` can also be defaulted even though they are free text
+rather than dropdowns.
 
 ---
 

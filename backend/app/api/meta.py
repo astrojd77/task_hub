@@ -17,6 +17,7 @@ from app.core.config import get_settings
 from app.core.enums import ENUM_CATALOG
 from app.db.session import get_db
 from app.providers import registry
+from app.services.field_config import list_fields
 
 router = APIRouter(tags=["meta"])
 
@@ -75,8 +76,18 @@ def ready(db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/enums")
-def enums() -> dict[str, list[str]]:
-    return ENUM_CATALOG
+def enums(db: Session = Depends(get_db)) -> dict[str, list[str]]:
+    """Dropdown options for the builtin scales, as configured.
+
+    Falls back to the canonical enums when a field has not been configured, so
+    a fresh install works before anyone visits the Config screen.
+    """
+    configured = {
+        f.field_key: f.values
+        for f in list_fields(db, enabled_only=True)
+        if f.kind == "builtin" and f.values
+    }
+    return {key: configured.get(key, values) for key, values in ENUM_CATALOG.items()}
 
 
 @router.get("/providers", response_model=ProvidersOut)

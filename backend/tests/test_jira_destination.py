@@ -57,6 +57,7 @@ def task(**overrides) -> TaskOut:
         "assignee": None,
         "project": None,
         "labels": [],
+        "custom_fields": {},
         "source_provider": "csv",
         "source_ref": "row-1",
         "external_refs": {},

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.models.task import Task
 from app.providers.base import ProviderError, SourceProvider
 from app.schemas.task import DraftBatch, DraftTask
+from app.services.field_config import apply_defaults
 
 #: Fields a user typically fills in during review and that sources rarely
 #: supply. If a re-import leaves one blank, we put the previously reviewed
@@ -37,6 +38,10 @@ def build_batch(
     if len(drafts) != len(items):  # pragma: no cover - defensive
         raise ProviderError(f"{provider.id} returned a draft count that does not match its items")
 
+    # Order matters: defaults fill blanks the source left, then the previous
+    # import's reviewed values are restored on top — a value the user actually
+    # chose last time should beat a configured default.
+    apply_defaults(db, drafts, provider.id)
     enrich_with_existing(db, drafts)
 
     describe = getattr(provider, "describe", None)

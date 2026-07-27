@@ -58,6 +58,19 @@ class SourceProvider(Protocol):
   distinct cases deserve three distinct messages: not configured, configured
   but empty, and configured but off-scale.
 
+## Configurable fields
+
+`services/field_config.py` owns dropdown options and per-source defaults.
+
+Builtin fields are backed by real `tasks` columns and their value set is the
+canonical enum — `upsert_field` decides "builtin" from `BUILTIN_FIELD_KEYS`,
+never from the stored row, because the rows are seeded lazily and a PUT before
+the first GET would otherwise create a builtin key as a custom field.
+
+Custom field values live in `tasks.custom_fields` (JSON), so the database
+enforces nothing — `validate_custom_fields` is the enforcement and runs on
+commit.
+
 ## Tests
 
 `pytest`, no network, no live database. In-memory SQLite via the `db` fixture;

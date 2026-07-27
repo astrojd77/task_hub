@@ -12,10 +12,12 @@ import { CommitSummary, DraftReview } from './DraftReview'
 export function JiraImport({
   info,
   enums,
+  configRevision = 0,
   onCommitted,
 }: {
   info: SourceInfo | undefined
   enums: EnumCatalog
+  configRevision?: number
   onCommitted: () => void
 }) {
   const [mode, setMode] = useState<'key' | 'jql'>('key')
@@ -114,6 +116,7 @@ export function JiraImport({
         <DraftReview
           batch={batch}
           enums={enums}
+          configRevision={configRevision}
           onDismiss={() => setBatch(null)}
           onCommitted={(r) => {
             setResult(r)

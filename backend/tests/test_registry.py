@@ -102,6 +102,7 @@ def test_local_push_reports_the_task_id(db):
         assignee=None,
         project=None,
         labels=[],
+        custom_fields={},
         source_provider="csv",
         source_ref="r1",
         external_refs={},

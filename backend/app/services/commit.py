@@ -19,6 +19,7 @@ from app.schemas.task import (
     TaskCommitIn,
     TaskOut,
 )
+from app.services.field_config import validate_custom_fields
 
 #: Fields copied verbatim from a reviewed draft onto the stored task.
 _MUTABLE_FIELDS = (
@@ -32,6 +33,7 @@ _MUTABLE_FIELDS = (
     "assignee",
     "project",
     "labels",
+    "custom_fields",
 )
 
 
@@ -75,6 +77,14 @@ def commit_drafts(
                     message="no due date — this task will not appear on the calendar",
                 )
             )
+        custom_errors = validate_custom_fields(db, draft.custom_fields)
+        if custom_errors:
+            for message in custom_errors:
+                result.errors.append(
+                    CommitError(index=index, source_ref=draft.source_ref, message=message)
+                )
+            continue
+
         if draft.criticality is None or draft.impact_size is None:
             result.warnings.append(
                 CommitWarning(

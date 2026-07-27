@@ -12,9 +12,11 @@ import { CommitSummary, DraftReview } from './DraftReview'
  */
 export function EmailImport({
   enums,
+  configRevision = 0,
   onCommitted,
 }: {
   enums: EnumCatalog
+  configRevision?: number
   onCommitted: () => void
 }) {
   const [batch, setBatch] = useState<DraftBatch | null>(null)
@@ -83,6 +85,7 @@ export function EmailImport({
         <DraftReview
           batch={batch}
           enums={enums}
+          configRevision={configRevision}
           onDismiss={() => setBatch(null)}
           onCommitted={(r) => {
             setResult(r)

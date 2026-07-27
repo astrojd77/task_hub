@@ -119,6 +119,25 @@ Source.fetch()  ->  DraftTask[]        parsed, NOT persisted
       -> POST /api/commit  ->  validated  ->  Task rows (idempotent upsert)
 ```
 
+### Configurable fields
+
+The **Config** tab defines what every dropdown offers, and what each import flow
+pre-fills.
+
+* **Builtin scales** (status, priority, criticality, impact) can be relabelled,
+  reordered and subset — call criticality "Severity" with options "Sev 1/2/3"
+  if that is your vocabulary. Their *values* are fixed, because the watch score's
+  weights and every adapter's mapping table key off them; a new value would
+  silently score zero and map from nothing.
+* **Custom fields** (Type, Platform, anything else) are fully user-defined and
+  need no migration or code change. Values live in `tasks.custom_fields` and are
+  validated against the configured options on commit — the JSON column itself
+  enforces nothing.
+* **Per-flow defaults** pre-fill a draft *before* review, and only where the
+  source left the field blank: a source is authoritative for what it actually
+  knows. Every applied default is announced on the draft, and the reviewer can
+  still change it — consistent with review-before-commit.
+
 ### The three prioritization axes
 
 These are deliberately independent and must not be collapsed:
@@ -309,6 +328,9 @@ committed.
 | GET | `/api/tasks/{id}` | one task |
 | DELETE | `/api/tasks/{id}` | remove a task |
 | GET | `/api/watch` | computed heads-up, scored and explained |
+| GET | `/api/config` | field definitions and per-source defaults |
+| PUT/DELETE | `/api/config/fields/{key}` | manage a dropdown's options |
+| PUT | `/api/config/defaults` | set or clear a per-flow default |
 | POST | `/api/sources/{id}/drafts` | parse a source's input into drafts — persists nothing |
 | POST | `/api/commit` | **the only door into the task store** |
 | GET/PUT | `/api/routes` | per-project default destinations |

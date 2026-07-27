@@ -42,6 +42,10 @@ class DraftTask(BaseModel):
     assignee: str | None = None
     project: str | None = None
     labels: list[str] = Field(default_factory=list)
+    #: Values for user-configured custom fields (Type, Platform, …), keyed by
+    #: FieldConfig.field_key. Validated on commit against the configured
+    #: options — the JSON column itself enforces nothing.
+    custom_fields: dict = Field(default_factory=dict)
 
     source_provider: str
     source_ref: str
@@ -98,6 +102,7 @@ class TaskOut(BaseModel):
     assignee: str | None
     project: str | None
     labels: list[str]
+    custom_fields: dict
     source_provider: str
     source_ref: str
     external_refs: dict

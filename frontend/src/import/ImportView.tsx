@@ -12,10 +12,12 @@ import { JiraImport } from './JiraImport'
 export function ImportView({
   providers,
   enums,
+  configRevision = 0,
   onCommitted,
 }: {
   providers: Providers | null
   enums: EnumCatalog | null
+  configRevision?: number
   onCommitted: () => void
 }) {
   const sources = providers?.sources ?? []
@@ -40,15 +42,20 @@ export function ImportView({
         ))}
       </div>
 
-      {current === 'csv' && <CsvImport enums={enums} onCommitted={onCommitted} />}
+      {current === 'csv' && (
+        <CsvImport enums={enums} configRevision={configRevision} onCommitted={onCommitted} />
+      )}
       {current === 'jira' && (
         <JiraImport
           info={sources.find((s) => s.id === 'jira')}
           enums={enums}
+          configRevision={configRevision}
           onCommitted={onCommitted}
         />
       )}
-      {current === 'email' && <EmailImport enums={enums} onCommitted={onCommitted} />}
+      {current === 'email' && (
+        <EmailImport enums={enums} configRevision={configRevision} onCommitted={onCommitted} />
+      )}
       {current && !['csv', 'jira', 'email'].includes(current) && (
         <div className="panel empty">
           {sources.find((s) => s.id === current)?.display_name} has no import panel yet.

@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client'
 import type { EnumCatalog, Health, Providers } from './api/types'
 import { CalendarView } from './calendar/CalendarView'
+import { ConfigView } from './config/ConfigView'
 import { ImportView } from './import/ImportView'
 import { TasksView } from './tasks/TasksView'
 import { WatchView } from './watch/WatchView'
 
-const TABS = ['Import', 'Tasks', 'Calendar', 'Watch'] as const
+const TABS = ['Import', 'Tasks', 'Calendar', 'Watch', 'Config'] as const
 type Tab = (typeof TABS)[number]
 
 export default function App() {
@@ -16,6 +17,9 @@ export default function App() {
   const [enums, setEnums] = useState<EnumCatalog | null>(null)
   // Bumped after a commit or a push so every view refetches.
   const [revision, setRevision] = useState(0)
+  // Separate counter: saving a field definition must refresh the review
+  // dropdowns and the enum catalog, but need not refetch the task lists.
+  const [configRevision, setConfigRevision] = useState(0)
 
   useEffect(() => {
     api.health().then(setHealth).catch(() => setHealth(null))
@@ -24,6 +28,11 @@ export default function App() {
   }, [])
 
   const refresh = useCallback(() => setRevision((r) => r + 1), [])
+  const refreshConfig = useCallback(() => {
+    setConfigRevision((r) => r + 1)
+    // Builtin scales feed /api/enums, so re-pull it when they change.
+    api.enums().then(setEnums).catch(() => undefined)
+  }, [])
 
   return (
     <div className="app">
@@ -49,7 +58,12 @@ export default function App() {
       ) : (
         <>
           {tab === 'Import' && (
-            <ImportView providers={providers} enums={enums} onCommitted={refresh} />
+            <ImportView
+              providers={providers}
+              enums={enums}
+              configRevision={configRevision}
+              onCommitted={refresh}
+            />
           )}
           {tab === 'Tasks' && (
             <TasksView
@@ -61,6 +75,7 @@ export default function App() {
           )}
           {tab === 'Calendar' && <CalendarView enums={enums} revision={revision} />}
           {tab === 'Watch' && <WatchView enums={enums} revision={revision} />}
+          {tab === 'Config' && <ConfigView onChanged={refreshConfig} />}
         </>
       )}
     </div>

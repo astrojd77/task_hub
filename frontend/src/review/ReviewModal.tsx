@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { DraftTask, EnumCatalog } from '../api/types'
+import type { DraftTask, EnumCatalog, FieldConfig } from '../api/types'
 import { validateDraft } from './ReviewTable'
 
 /**
@@ -12,6 +12,7 @@ import { validateDraft } from './ReviewTable'
 export function ReviewModal({
   draft,
   enums,
+  customFields = [],
   busy,
   onChange,
   onCommit,
@@ -19,6 +20,8 @@ export function ReviewModal({
 }: {
   draft: DraftTask
   enums: EnumCatalog
+  /** User-configured dropdowns from the Config screen. */
+  customFields?: FieldConfig[]
   busy: boolean
   onChange: (patch: Partial<DraftTask>) => void
   onCommit: () => void
@@ -128,6 +131,33 @@ export function ReviewModal({
               onChange={(e) => onChange({ assignee: e.target.value || null })}
             />
           </label>
+          {customFields.map((field) => (
+            <label key={field.field_key}>
+              <span>
+                {field.label}
+                {field.is_required && ' *'}
+              </span>
+              <select
+                value={draft.custom_fields[field.field_key] ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    custom_fields: {
+                      ...draft.custom_fields,
+                      [field.field_key]: e.target.value,
+                    },
+                  })
+                }
+              >
+                <option value="">— set —</option>
+                {field.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label || o.value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+
           <label>
             <span>Labels</span>
             <input

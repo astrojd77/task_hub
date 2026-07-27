@@ -21,11 +21,12 @@ Two properties define the architecture:
 | ----- | ----- | ----- |
 | 0 | Scaffold, canonical model, registry, commit pipeline | ✅ done |
 | 1 | CSV source + review table + local destination | ✅ done |
-| 2 | Calendar view | ⬜ next |
-| 3 | Watch / notifications view | ⬜ |
-| 4 | Jira source (targeted) + review modal | ⬜ |
-| 5 | Email (`.msg` / `.eml`) drop source | ⬜ |
-| 6 | Destination routing + Jira push | ⬜ |
+| 2 | Calendar view | ✅ done |
+| 3 | Watch / notifications view | ✅ done |
+| 4 | Jira source (targeted) + review modal | ✅ done |
+| 5 | Email (`.msg` / `.eml`) drop source | ✅ done |
+| 6 | Destination routing + Jira push | ✅ done |
+| 7 | Re-sync, delivered digests, more destinations | ⬜ later |
 
 Deployment to OpenShift is available now — see
 [`deploy/openshift/`](deploy/openshift/README.md).
@@ -134,18 +135,62 @@ exists to capture before commit.
 backend/app/
   core/         config, canonical enums
   db/           base metadata, portable column types, session
-  models/       SQLAlchemy Task
+  models/       SQLAlchemy Task, ProjectRoute
   schemas/      DraftTask (permissive) / TaskCommitIn (strict) / TaskOut
   providers/
     base.py       SourceProvider + DestinationProvider protocols
     registry.py   self-registration, config-driven enable/disable
-    sources/      one module per inbound platform
-    destinations/ one module per outbound platform
-  services/     commit (the only writer), shared filters
+    jira_client.py shared REST v3 client + ADF handling
+    sources/      csv, jira, email
+    destinations/ local, jira
+  services/     commit (the only writer), filters, watch, routing, drafts
   api/          FastAPI routers
 frontend/src/
   api/          typed client mirroring the backend schemas
+  import/       per-source panels + shared draft review
+  review/       ReviewTable (many) and ReviewModal (one)
+  filters/      one filter model shared by all three views
+  tasks/ calendar/ watch/
 ```
+
+### Sources
+
+| Source | Targeting | Idempotency key |
+| ------ | --------- | --------------- |
+| CSV | a file, with column mapping | row hash of the *original* row, or an id column if present |
+| Jira | **one issue key or one JQL query** — never a blanket pull | issue key |
+| Email | a saved `.msg` / `.eml`, parsed locally | `Message-ID`, falling back to a content hash |
+
+Email has **no Outlook or Graph connection**. Dragging straight out of the
+Outlook desktop app is out of scope — it exposes a virtual file the browser
+usually cannot read — so the picker fallback covers that: save the message
+first, then drop or pick it.
+
+### Routing
+
+Destination resolves most-specific-first: **task → project default → `local`**.
+`GET /api/tasks/{id}/destination` reports which rule won, because "resolved:
+jira" is less useful than "jira, because it is the default for project
+Platform".
+
+One guardrail: a task whose `source_provider` matches its destination cannot be
+pushed as a *new* item — that would silently duplicate the issue it came from.
+Updating the original is allowed and is what a second push does. The rule is
+written against any adapter that is both a source and a destination, not just
+Jira.
+
+### The watch score
+
+Every knob lives in `WatchWeights` in `app/services/watch.py`:
+
+```
+score = criticality_weight + impact_weight + due_urgency + (blocked ? +2 : 0)
+```
+
+Each row returns its own breakdown (`"criticality high +3"`, `"overdue by 2d
++5"`) and the API returns the weight table, so the ranking can be explained and
+tuned rather than trusted. Done work is excluded from the view entirely —
+including from overdue, where a completed-but-late task is noise.
 
 ### Adding a platform
 
@@ -235,6 +280,9 @@ committed.
 | `ENABLED_SOURCES` | which inbound adapters are live |
 | `ENABLED_DESTINATIONS` | which outbound adapters are live (`local` always on) |
 | `STATIC_DIR` | built SPA to serve; when absent the API serves only `/api` |
+| `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` | Jira credentials — server-side only, never sent from the browser |
+| `JIRA_PROJECT_KEY`, `JIRA_ISSUE_TYPE` | where pushed issues are created |
+| `JIRA_CRITICALITY_FIELD`, `JIRA_IMPACT_FIELD` | optional custom fields carrying criticality / impact |
 
 ## API
 
@@ -248,5 +296,9 @@ committed.
 | GET | `/api/tasks/facets` | distinct values behind the filter dropdowns |
 | GET | `/api/tasks/{id}` | one task |
 | DELETE | `/api/tasks/{id}` | remove a task |
+| GET | `/api/watch` | computed heads-up, scored and explained |
 | POST | `/api/sources/{id}/drafts` | parse a source's input into drafts — persists nothing |
 | POST | `/api/commit` | **the only door into the task store** |
+| GET/PUT | `/api/routes` | per-project default destinations |
+| GET/PUT | `/api/tasks/{id}/destination` | per-task destination, and how it resolves |
+| POST | `/api/tasks/{id}/push` | send a task to its destination |

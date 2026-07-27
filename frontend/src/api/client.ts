@@ -4,7 +4,10 @@ import type {
   DraftTask,
   EnumCatalog,
   Health,
+  DestinationResolution,
   Providers,
+  PushResult,
+  Route,
   Task,
   WatchOut,
 } from './types'
@@ -105,6 +108,22 @@ export const api = {
   watch: (query?: TaskQuery) => request<WatchOut>(`/watch${toQueryString(query)}`),
   deleteTask: (id: string) =>
     request<void>(`/tasks/${id}`, { method: 'DELETE' }),
+
+  // -- routing (phase 6) --------------------------------------------
+  routes: () => request<Route[]>('/routes'),
+  setRoute: (project: string, destination: string | null) =>
+    request<Route | null>('/routes', {
+      method: 'PUT',
+      body: JSON.stringify({ project, destination }),
+    }),
+  taskDestination: (id: string) =>
+    request<DestinationResolution>(`/tasks/${id}/destination`),
+  setTaskDestination: (id: string, destination: string | null) =>
+    request<Task>(`/tasks/${id}/destination`, {
+      method: 'PUT',
+      body: JSON.stringify({ destination }),
+    }),
+  pushTask: (id: string) => request<PushResult>(`/tasks/${id}/push`, { method: 'POST' }),
 
   /** The only way tasks enter the store. */
   commit: (drafts: DraftTask[], defaultDestination?: string) =>

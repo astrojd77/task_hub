@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { EnumCatalog, Providers } from '../api/types'
 import { CsvImport } from './CsvImport'
+import { EmailImport } from './EmailImport'
+import { JiraImport } from './JiraImport'
 
 /**
- * Source picker. The list comes from /api/providers, so registering a new
- * adapter on the backend makes it appear here with no change to this file —
- * only the per-source panel below needs adding.
+ * Source picker. The list comes from /api/providers, so an adapter registered
+ * on the backend appears here without touching this file — only its panel
+ * needs adding below.
  */
 export function ImportView({
   providers,
@@ -38,12 +40,18 @@ export function ImportView({
         ))}
       </div>
 
-      {current === 'csv' ? (
-        <CsvImport enums={enums} onCommitted={onCommitted} />
-      ) : (
+      {current === 'csv' && <CsvImport enums={enums} onCommitted={onCommitted} />}
+      {current === 'jira' && (
+        <JiraImport
+          info={sources.find((s) => s.id === 'jira')}
+          enums={enums}
+          onCommitted={onCommitted}
+        />
+      )}
+      {current === 'email' && <EmailImport enums={enums} onCommitted={onCommitted} />}
+      {current && !['csv', 'jira', 'email'].includes(current) && (
         <div className="panel empty">
-          {sources.find((s) => s.id === current)?.display_name} lands in{' '}
-          {current === 'jira' ? 'phase 4' : 'phase 5'}.
+          {sources.find((s) => s.id === current)?.display_name} has no import panel yet.
         </div>
       )}
     </div>

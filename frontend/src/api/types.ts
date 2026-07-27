@@ -49,14 +49,22 @@ export interface DraftBatch {
   source_provider: string
   drafts: DraftTask[]
   warnings: string[]
-  /** Adapter-specific. CSV puts its detected columns and mapping here. */
+  /**
+   * Adapter-specific, opaque to core. CSV puts its detected columns and
+   * mapping here; Jira and email say how the batch wants reviewing.
+   */
   meta: {
+    /** The adapter decides: one item gets a modal, a query gets the table. */
+    review_style?: 'modal' | 'table'
+    target?: string
     filename?: string
     columns?: string[]
     row_count?: number
     mappable_fields?: string[]
     mapping?: Record<string, string>
     suggested_mapping?: Record<string, string>
+    criticality_field?: string | null
+    impact_field?: string | null
   }
 }
 
@@ -71,7 +79,12 @@ export interface CommitResult {
 export interface SourceInfo {
   id: string
   display_name: string
-  config_schema: Record<string, unknown>
+  /** Adapter-declared. The known keys below are read by the import panels. */
+  config_schema: Record<string, unknown> & {
+    configured?: boolean
+    criticality_field?: string | null
+    impact_field?: string | null
+  }
 }
 
 export interface DestinationInfo {
@@ -116,6 +129,29 @@ export interface WatchOut {
     due_soon_days: number
   }
   sections: WatchSection[]
+}
+
+export interface Route {
+  project: string
+  destination: string
+}
+
+export interface DestinationResolution {
+  /** Set explicitly on the task; null means it falls through. */
+  explicit: string | null
+  resolved: string
+  /** Which rule won: 'set on the task', a project default, or 'fallback'. */
+  reason: string
+  external_refs: Record<string, string>
+}
+
+export interface PushResult {
+  task_id: string
+  destination: string
+  external_id: string
+  url: string | null
+  action: 'created' | 'updated'
+  task: Task
 }
 
 export interface Health {

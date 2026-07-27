@@ -1,8 +1,24 @@
 import { useEffect } from 'react'
-import type { Task } from '../api/types'
+import type { Providers, Task } from '../api/types'
+import { RoutingPanel } from './RoutingPanel'
 
-/** Read-only detail popup, shared by the task list and the calendar. */
-export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void }) {
+/**
+ * Detail popup, shared by the task list and the calendar.
+ *
+ * Read-only unless the caller supplies routing controls: the task list passes
+ * them, the calendar opens the same popup without them.
+ */
+export function TaskDetail({
+  task,
+  providers,
+  onChanged,
+  onClose,
+}: {
+  task: Task
+  providers?: Providers | null
+  onChanged?: () => void
+  onClose: () => void
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -44,6 +60,10 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose: () => void 
             <Row key={provider} label={`Pushed to ${provider}`} value={id} />
           ))}
         </dl>
+
+        {onChanged && (
+          <RoutingPanel task={task} providers={providers ?? null} onChanged={onChanged} />
+        )}
       </div>
     </div>
   )

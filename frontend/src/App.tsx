@@ -51,7 +51,14 @@ export default function App() {
           {tab === 'Import' && (
             <ImportView providers={providers} enums={enums} onCommitted={refresh} />
           )}
-          {tab === 'Tasks' && <TasksView enums={enums} revision={revision} />}
+          {tab === 'Tasks' && (
+            <TasksView
+              enums={enums}
+              providers={providers}
+              revision={revision}
+              onChanged={refresh}
+            />
+          )}
           {tab === 'Calendar' && <CalendarView enums={enums} revision={revision} />}
           {tab === 'Watch' && <WatchView enums={enums} revision={revision} />}
         </>

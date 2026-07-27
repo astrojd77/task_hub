@@ -52,6 +52,24 @@ class Settings(BaseSettings):
     enabled_sources: list[str] = ["csv", "jira", "email"]
     enabled_destinations: list[str] = ["local", "jira"]
 
+    # ---------------------------------------------------------------- jira
+    # Credentials live here, not in the request, so they are never round
+    # tripped through the browser. The *targeting* — one issue key or a JQL
+    # query — comes from the request, because that is the user's choice each
+    # time and is never a blanket pull.
+    jira_base_url: str = ""
+    jira_email: str = ""
+    jira_api_token: str = ""
+    jira_project_key: str = ""
+    jira_issue_type: str = "Task"
+    jira_timeout_seconds: float = 30.0
+    #: Jira custom fields carrying criticality / impact, e.g. "customfield_10042".
+    #: Unmapped or absent means the review popup asks for them instead.
+    jira_criticality_field: str = ""
+    jira_impact_field: str = ""
+    #: Ceiling on a single JQL fetch.
+    jira_max_results: int = 100
+
     _split = field_validator(
         "cors_origins", "enabled_sources", "enabled_destinations", mode="before"
     )(_split_csv)
@@ -59,6 +77,10 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
+
+    @property
+    def jira_configured(self) -> bool:
+        return bool(self.jira_base_url and self.jira_email and self.jira_api_token)
 
 
 @lru_cache

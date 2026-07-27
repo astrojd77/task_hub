@@ -8,10 +8,13 @@ changes.
 """
 
 # Destinations
+from app.providers.destinations import jira as _jira_dest  # noqa: F401
 from app.providers.destinations import local as _local  # noqa: F401
 from app.providers.registry import registry
 
 # Sources
 from app.providers.sources import csv_source as _csv  # noqa: F401
+from app.providers.sources import email_source as _email  # noqa: F401
+from app.providers.sources import jira_source as _jira_source  # noqa: F401
 
 __all__ = ["registry"]

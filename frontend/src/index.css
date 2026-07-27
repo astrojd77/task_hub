@@ -548,3 +548,93 @@ tr.clickable {
 tr.clickable:hover {
   background: var(--bg);
 }
+
+/* ------------------------------------------------------- forms & routing */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.form-grid label,
+.stacked-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.form-grid .span2 {
+  grid-column: 1 / -1;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.stacked-field input,
+.stacked-field textarea {
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+}
+
+.form-grid textarea,
+.stacked-field textarea {
+  resize: vertical;
+}
+
+.stacked-field {
+  margin-bottom: 12px;
+}
+
+.modal-foot {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-bottom: 0;
+}
+
+.row-notes.stacked li {
+  padding: 2px 0;
+}
+
+pre.raw {
+  margin-top: 12px;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.routing {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.routing p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.warn-panel {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 12px;
+}

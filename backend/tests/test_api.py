@@ -187,3 +187,61 @@ def test_watch_honours_the_shared_filters(client):
 
     assert len(eye) == 1
     assert eye[0]["task"]["project"] == "Platform"
+
+
+# -- routing endpoints ---------------------------------------------------
+
+
+def test_project_default_route_round_trip(client):
+    res = client.put("/api/routes", json={"project": "Platform", "destination": "local"})
+    assert res.status_code == 200
+    assert client.get("/api/routes").json() == [{"project": "Platform", "destination": "local"}]
+
+    client.put("/api/routes", json={"project": "Platform", "destination": None})
+    assert client.get("/api/routes").json() == []
+
+
+def test_route_to_unknown_destination_is_400(client):
+    res = client.put("/api/routes", json={"project": "P", "destination": "myspace"})
+    assert res.status_code == 400
+
+
+def test_destination_resolution_explains_itself(client):
+    task_id = _commit(client, source_ref="r", project="Platform")["tasks"][0]["id"]
+
+    assert client.get(f"/api/tasks/{task_id}/destination").json()["reason"] == "set on the task"
+
+    # Commit defaults destination to "local"; clear it to see the fallthrough.
+    client.put(f"/api/tasks/{task_id}/destination", json={"destination": None})
+    client.put("/api/routes", json={"project": "Platform", "destination": "local"})
+
+    body = client.get(f"/api/tasks/{task_id}/destination").json()
+    assert body["explicit"] is None
+    assert body["resolved"] == "local"
+
+
+def test_push_to_local_records_an_external_ref(client):
+    task_id = _commit(client, source_ref="r")["tasks"][0]["id"]
+
+    body = client.post(f"/api/tasks/{task_id}/push").json()
+    assert body["action"] == "created"
+    assert body["destination"] == "local"
+    assert body["task"]["external_refs"] == {"local": task_id}
+
+
+def test_pushing_a_jira_task_back_to_jira_is_409(client, monkeypatch):
+    """The phase 6 guardrail, surfaced as a conflict rather than a 500."""
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "enabled_destinations", ["local", "jira"], raising=False)
+
+    task_id = _commit(client, source_provider="jira", source_ref="OPS-1")["tasks"][0]["id"]
+    client.put(f"/api/tasks/{task_id}/destination", json={"destination": "jira"})
+
+    res = client.post(f"/api/tasks/{task_id}/push")
+    assert res.status_code == 409
+    assert "duplicate" in res.json()["detail"]
+
+
+def test_push_of_a_missing_task_is_404(client):
+    assert client.post("/api/tasks/nope/push").status_code == 404

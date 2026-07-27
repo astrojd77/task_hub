@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import type { EnumCatalog, Task } from '../api/types'
+import type { EnumCatalog, Providers, Task } from '../api/types'
 import { FilterBar } from '../filters/FilterBar'
 import { toQuery, useFacets, useFilters } from '../filters/filters'
+import { ProjectRoutes } from './RoutingPanel'
 import { TaskDetail } from './TaskDetail'
 
-export function TasksView({ enums, revision }: { enums: EnumCatalog; revision: number }) {
+export function TasksView({
+  enums,
+  providers,
+  revision,
+  onChanged,
+}: {
+  enums: EnumCatalog
+  providers: Providers | null
+  revision: number
+  onChanged: () => void
+}) {
   const { filters, set, toggle, reset } = useFilters()
   const facets = useFacets(revision)
   const [tasks, setTasks] = useState<Task[] | null>(null)
@@ -39,6 +50,12 @@ export function TasksView({ enums, revision }: { enums: EnumCatalog; revision: n
         onSet={set}
         onToggle={toggle}
         onReset={reset}
+      />
+
+      <ProjectRoutes
+        providers={providers}
+        projects={facets.project ?? []}
+        revision={revision}
       />
 
       {error && <div className="panel error">{error}</div>}
@@ -88,7 +105,14 @@ export function TasksView({ enums, revision }: { enums: EnumCatalog; revision: n
         </div>
       )}
 
-      {selected && <TaskDetail task={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <TaskDetail
+          task={selected}
+          providers={providers}
+          onChanged={onChanged}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   )
 }

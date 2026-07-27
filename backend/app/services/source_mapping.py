@@ -165,6 +165,49 @@ def set_mapping(
     return existing
 
 
+def add_value_rule(
+    db: Session, source_provider: str, field_key: str, native_value: str, canonical: str
+) -> SourceMapping:
+    """Add one value rule, keeping the rest of the field's mapping intact.
+
+    Distinct from ``set_mapping``, which replaces the whole value map. The
+    review screen adds rules one at a time as it meets values it could not
+    translate, and must not clobber what is already configured — or the input
+    column, which is often the only thing set.
+    """
+    native = str(native_value).strip()
+    canonical = str(canonical).strip()
+    if not native or not canonical:
+        raise SourceMappingError("a rule needs both a value and what it maps to")
+
+    existing = db.execute(
+        select(SourceMapping).where(
+            SourceMapping.source_provider == source_provider,
+            SourceMapping.field_key == field_key,
+        )
+    ).scalar_one_or_none()
+
+    merged = {**((existing.value_map if existing else None) or {}), native.lower(): canonical}
+
+    if existing is None:
+        existing = SourceMapping(
+            source_provider=source_provider,
+            field_key=field_key,
+            source_expr=None,
+            value_map=merged,
+        )
+        db.add(existing)
+    else:
+        # Reassign rather than mutate: PortableJSON tracks by identity, so an
+        # in-place update would not be flushed.
+        existing.value_map = merged
+        existing.updated_at = utcnow()
+
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
 def replace_mappings(
     db: Session, source_provider: str, mappings: dict[str, dict[str, Any]]
 ) -> list[SourceMapping]:
@@ -187,6 +230,7 @@ def translate_enum(
     builtin_table: dict[str, Any],
     label: str,
     warnings: list[str],
+    unmapped: list[dict[str, str]] | None = None,
 ) -> Any | None:
     """Native value -> canonical, configuration first, adapter table second.
 
@@ -205,10 +249,13 @@ def translate_enum(
 
     hit = builtin_table.get(str(native_value).strip().lower())
     if hit is None:
-        suffix = (
-            " — add a rule for it in Config, or set it below"
-            if mapping.source_provider
-            else " — set it manually"
-        )
-        warnings.append(f"{label} {native_value!r} is not on the scale{suffix}")
+        warnings.append(f"{label} {native_value!r} is not on the scale")
+        if unmapped is not None:
+            unmapped.append(
+                {
+                    "field_key": field_key,
+                    "label": label,
+                    "native_value": str(native_value).strip(),
+                }
+            )
     return hit

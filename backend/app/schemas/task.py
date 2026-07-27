@@ -21,6 +21,21 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.core.enums import Criticality, ImpactSize, Priority, TaskStatus
 
 
+class UnmappedValue(BaseModel):
+    """A value the source produced that no rule could translate.
+
+    Reported alongside the warning rather than instead of it: the warning
+    explains, this makes it *fixable* from the review screen. Saving a rule
+    here is what stops the same value needing attention on every future import.
+    """
+
+    field_key: str
+    #: Human label for the field, so the prompt reads as the user's vocabulary.
+    label: str
+    #: Exactly what the source said, unchanged — this becomes the rule's key.
+    native_value: str
+
+
 class DraftTask(BaseModel):
     """An unvalidated, uncommitted candidate task produced by a source."""
 
@@ -53,6 +68,8 @@ class DraftTask(BaseModel):
 
     #: Non-fatal notes from the adapter, surfaced next to the row in review.
     warnings: list[str] = Field(default_factory=list)
+    #: Values no rule could translate, offered as one-click mappings in review.
+    unmapped: list[UnmappedValue] = Field(default_factory=list)
     #: Set when this draft matches a task that was already committed, so the
     #: review UI can show "you have seen this before" instead of implying it is
     #: new. Ignored on commit — the upsert keys off source_provider/source_ref.

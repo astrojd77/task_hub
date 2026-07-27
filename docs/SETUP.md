@@ -314,8 +314,21 @@ warnings and no code change.
 
 Mappings are **per flow**: configuring CSV leaves Jira and email untouched.
 
-An unmapped value still **warns rather than being guessed at** — a blank field
-the reviewer can see beats a wrong one they cannot.
+### Teaching a value from the review screen
+
+An unmapped value **warns rather than being guessed at** — a blank field the
+reviewer can see beats a wrong one they cannot. But the review screen also
+offers to fix it on the spot:
+
+> “Titanic” didn’t map to an Impact — [ it means ▾ ] **Remember this**
+
+Answering writes a rule to that source's mapping, so the value translates by
+itself on every future import, and applies it to the row in front of you at the
+same time. The rule is **merged** into the field's existing rules, so teaching a
+value never disturbs the input column or the rules already there.
+
+Only genuine misses ask. A value the adapter already recognises — `Doing`,
+`Sev 1`, `P0` — never appears, so the prompt stays meaningful.
 
 ### Per-flow defaults
 

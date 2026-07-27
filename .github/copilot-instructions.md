@@ -70,7 +70,10 @@ owns them.
   resolves which input feeds a field and how its values translate; an adapter's
   built-in aliases and value tables still fill every gap, so an unconfigured
   install imports sensibly. Precedence is request mapping > saved mapping >
-  adapter detection.
+  adapter detection. An unmappable value is reported *structurally*
+  (`DraftTask.unmapped`) as well as in prose, so the review screen can offer a
+  one-click rule; `add_value_rule` merges rather than replacing, or teaching a
+  value would wipe the input column.
 - **Per-source defaults fill blanks only.** A default must never overwrite a
   value the source actually supplied, and every applied default is announced on
   the draft so the reviewer knows it was configuration talking.
@@ -95,7 +98,7 @@ owns them.
 ## Commands
 
 ```bash
-cd backend && .venv/bin/python -m pytest       # 233 tests, no network needed
+cd backend && .venv/bin/python -m pytest       # 240 tests, no network needed
 cd backend && .venv/bin/ruff check app tests
 cd frontend && npm run build                   # tsc -b && vite build
 ./scripts/migrate.sh                           # Flyway, dialect from DATABASE_URL

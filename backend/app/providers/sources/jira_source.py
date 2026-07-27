@@ -319,18 +319,37 @@ class JiraSource:
         fields = issue.get("fields") or {}
         mapping = raw.payload.get("_mapping") or EMPTY_MAPPING
         warnings: list[str] = []
+        unmapped: list[dict[str, str]] = []
 
         def source_field(field_key: str):
             """Read whichever Jira field is mapped to this canonical field."""
             return fields.get(mapping.input_for(field_key, DEFAULT_INPUTS.get(field_key)))
 
-        status, status_warning = map_status(source_field("status"), mapping)
+        raw_status = source_field("status") or {}
+        status, status_warning = map_status(raw_status, mapping)
         if status_warning:
             warnings.append(status_warning)
+            if raw_status.get("name"):
+                unmapped.append(
+                    {
+                        "field_key": "status",
+                        "label": "status",
+                        "native_value": str(raw_status["name"]).strip(),
+                    }
+                )
 
-        priority, priority_warning = map_priority(source_field("priority"), mapping)
+        raw_priority = source_field("priority") or {}
+        priority, priority_warning = map_priority(raw_priority, mapping)
         if priority_warning:
             warnings.append(priority_warning)
+            if raw_priority.get("name"):
+                unmapped.append(
+                    {
+                        "field_key": "priority",
+                        "label": "priority",
+                        "native_value": str(raw_priority["name"]).strip(),
+                    }
+                )
 
         due_date, date_warning = parse_date(source_field("due_date"))
         if date_warning:
@@ -344,6 +363,7 @@ class JiraSource:
             mapping,
             "criticality",
             warnings,
+            unmapped,
         )
         impact = self._mapped_enum(
             fields,
@@ -353,6 +373,7 @@ class JiraSource:
             mapping,
             "impact_size",
             warnings,
+            unmapped,
         )
 
         assignee = (source_field("assignee") or {}).get("displayName")
@@ -372,13 +393,14 @@ class JiraSource:
             labels=list(source_field("labels") or []),
             source_provider=self.id,
             source_ref=issue["key"],
-            custom_fields=self._custom_fields(fields, mapping),
+            custom_fields=self._custom_fields(fields, mapping, unmapped),
             raw_payload={k: v for k, v in issue.items() if k != "_mapping"},
             warnings=warnings,
+            unmapped=unmapped,
         )
 
     @staticmethod
-    def _custom_fields(fields: dict, mapping) -> dict[str, str]:
+    def _custom_fields(fields: dict, mapping, unmapped) -> dict[str, str]:
         """Configured custom fields, read from whichever Jira field feeds them.
 
         The adapter needs no knowledge of what Type or Platform mean — only
@@ -395,7 +417,14 @@ class JiraSource:
             if native is None:
                 continue
             translated, matched = mapping.translate(field_key, native)
-            values[field_key] = translated if matched else native
+            if matched:
+                values[field_key] = translated
+            else:
+                values[field_key] = native
+                if mapping.has_value_rules(field_key):
+                    unmapped.append(
+                        {"field_key": field_key, "label": field_key, "native_value": native}
+                    )
         return values
 
     def _mapped_enum(
@@ -407,6 +436,7 @@ class JiraSource:
         mapping,
         field_key: str,
         warnings: list[str],
+        unmapped: list[dict[str, str]] | None = None,
     ):
         """Read a configured custom field, or leave it for the review popup.
 
@@ -422,4 +452,4 @@ class JiraSource:
             warnings.append(f"{label} field {field_id} is empty on this issue — set it below")
             return None
 
-        return translate_enum(mapping, field_key, value, table, label, warnings)
+        return translate_enum(mapping, field_key, value, table, label, warnings, unmapped)

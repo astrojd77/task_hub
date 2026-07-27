@@ -138,6 +138,10 @@ pre-fills.
   (`Sev 1 → critical`). Both halves are overrides: leave them blank and the
   adapter's own detection applies. The choices come from the adapter, so a Jira
   custom field is picked by name rather than typed as `customfield_10042`.
+* **Unmapped values are fixable in place.** When a source produces a value no
+  rule can translate, the review screen offers a dropdown and a "Remember this"
+  button; answering once writes the rule and it never asks again. Only genuine
+  misses appear — values the adapter already recognises stay quiet.
 * **Per-flow defaults** pre-fill a draft *before* review, and only where the
   source left the field blank: a source is authoritative for what it actually
   knows. Every applied default is announced on the draft, and the reviewer can
@@ -337,6 +341,7 @@ committed.
 | PUT/DELETE | `/api/config/fields/{key}` | manage a dropdown's options |
 | PUT | `/api/config/defaults` | set or clear a per-flow default |
 | PUT | `/api/config/mappings` | save a flow's field and value mapping |
+| POST | `/api/config/mappings/rule` | teach one value; merges with existing rules |
 | POST | `/api/sources/{id}/inputs` | what that source can feed a field from |
 | POST | `/api/sources/{id}/drafts` | parse a source's input into drafts — persists nothing |
 | POST | `/api/commit` | **the only door into the task store** |

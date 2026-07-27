@@ -21,7 +21,12 @@ from app.services.field_config import (
     set_default,
     upsert_field,
 )
-from app.services.source_mapping import list_mappings, replace_mappings
+from app.services.source_mapping import (
+    SourceMappingError,
+    add_value_rule,
+    list_mappings,
+    replace_mappings,
+)
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -86,6 +91,15 @@ class MappingIn(BaseModel):
     mappings: dict[str, MappingSpec]
 
 
+class ValueRuleIn(BaseModel):
+    source_provider: str
+    field_key: str
+    #: Exactly what the source said.
+    native_value: str
+    #: The canonical value it should become.
+    value: str
+
+
 class InputOut(BaseModel):
     key: str
     label: str
@@ -143,6 +157,33 @@ def get_config(db: Session = Depends(get_db)) -> ConfigOut:
             for m in list_mappings(db)
         ],
         mappable_fields=[_to_out(f) for f in list_fields(db)],
+    )
+
+
+@router.post("/mappings/rule", response_model=MappingOut)
+def add_rule(payload: ValueRuleIn, db: Session = Depends(get_db)) -> MappingOut:
+    """Teach one value, from the review screen.
+
+    Merges into the field's existing rules rather than replacing them, so
+    mapping a value never disturbs the input column or the rules already there.
+    """
+    try:
+        registry.source(payload.source_provider)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    try:
+        saved = add_value_rule(
+            db, payload.source_provider, payload.field_key, payload.native_value, payload.value
+        )
+    except SourceMappingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return MappingOut(
+        source_provider=saved.source_provider,
+        field_key=saved.field_key,
+        source_expr=saved.source_expr,
+        value_map=saved.value_map or {},
     )
 
 

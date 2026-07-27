@@ -22,5 +22,5 @@ export function useFieldConfig(revision: number) {
     (f) => f.kind === 'custom' && f.enabled,
   )
 
-  return { config, customFields: custom }
+  return { config, customFields: custom, allFields: config?.fields ?? [] }
 }

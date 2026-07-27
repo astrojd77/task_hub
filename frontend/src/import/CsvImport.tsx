@@ -21,7 +21,7 @@ export function CsvImport({
   configRevision?: number
   onCommitted: () => void
 }) {
-  const { customFields } = useFieldConfig(configRevision)
+  const { customFields, allFields } = useFieldConfig(configRevision)
   const [file, setFile] = useState<File | null>(null)
   const [batch, setBatch] = useState<DraftBatch | null>(null)
   const [drafts, setDrafts] = useState<DraftTask[]>([])
@@ -164,6 +164,7 @@ export function CsvImport({
             drafts={drafts}
             enums={enums}
             customFields={customFields}
+            allFields={allFields}
             selected={selected}
             onToggle={(i) =>
               setSelected((s) => {

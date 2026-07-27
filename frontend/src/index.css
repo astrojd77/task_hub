@@ -754,3 +754,35 @@ button.linkish.danger {
 .file-pick {
   cursor: pointer;
 }
+
+/* ------------------------------------------------------ unmapped values */
+
+.unmapped-rule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.unmapped-rule select {
+  width: auto;
+  min-width: 110px;
+}
+
+.unmapped-block {
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rule-saved {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}

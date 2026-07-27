@@ -328,6 +328,7 @@ class CsvSource:
         mapping: dict[str, str] = raw.payload["mapping"]
         configured = raw.payload.get("configured") or EMPTY_MAPPING
         warnings: list[str] = []
+        unmapped: list[dict[str, str]] = []
 
         def cell(field: str) -> str | None:
             column = mapping.get(field)
@@ -335,7 +336,7 @@ class CsvSource:
 
         def to_enum(field: str, table: dict, label: str):
             # Configured value rules win; the tables above fill the gaps.
-            return translate_enum(configured, field, cell(field), table, label, warnings)
+            return translate_enum(configured, field, cell(field), table, label, warnings, unmapped)
 
         summary = cell("summary")
         if summary is None:
@@ -359,15 +360,16 @@ class CsvSource:
             assignee=cell("assignee"),
             project=cell("project"),
             labels=split_labels(cell("labels")),
-            custom_fields=self._custom_fields(row, mapping, configured, warnings),
+            custom_fields=self._custom_fields(row, mapping, configured, unmapped),
             source_provider=self.id,
             source_ref=raw.source_ref,
             raw_payload=row,
             warnings=warnings,
+            unmapped=unmapped,
         )
 
     @staticmethod
-    def _custom_fields(row, mapping, configured, warnings) -> dict[str, str]:
+    def _custom_fields(row, mapping, configured, unmapped) -> dict[str, str]:
         """Any mapped field that is not one of ours is a configured custom field.
 
         The adapter does not need to know what Type or Platform are — only that
@@ -381,5 +383,14 @@ class CsvSource:
             if native is None:
                 continue
             translated, matched = configured.translate(field_key, native)
-            values[field_key] = translated if matched else native
+            if matched:
+                values[field_key] = translated
+            else:
+                # No rule for this value. Carry it through so the reviewer can
+                # see what the source actually said, and offer it for mapping.
+                values[field_key] = native
+                if configured.has_value_rules(field_key):
+                    unmapped.append(
+                        {"field_key": field_key, "label": field_key, "native_value": native}
+                    )
         return values

@@ -44,8 +44,17 @@ export interface DraftTask {
   source_ref: string
   raw_payload: Record<string, unknown> | null
   warnings: string[]
+  /** Offered as one-click mappings in review. */
+  unmapped: UnmappedValue[]
   /** Set when this draft matches an already-committed task. */
   existing_task_id: string | null
+}
+
+/** A value the source produced that no rule could translate. */
+export interface UnmappedValue {
+  field_key: string
+  label: string
+  native_value: string
 }
 
 export interface DraftBatch {

@@ -119,6 +119,23 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(field),
     }),
+  /** Teach one value from the review screen; merges with existing rules. */
+  addValueRule: (
+    sourceProvider: string,
+    fieldKey: string,
+    nativeValue: string,
+    value: string,
+  ) =>
+    request<unknown>('/config/mappings/rule', {
+      method: 'POST',
+      body: JSON.stringify({
+        source_provider: sourceProvider,
+        field_key: fieldKey,
+        native_value: nativeValue,
+        value,
+      }),
+    }),
+
   saveMappings: (
     sourceProvider: string,
     mappings: Record<string, { source_expr: string | null; value_map: Record<string, string> }>,

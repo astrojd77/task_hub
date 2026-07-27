@@ -30,7 +30,7 @@ export function DraftReview({
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { customFields } = useFieldConfig(configRevision)
+  const { customFields, allFields } = useFieldConfig(configRevision)
 
   useEffect(() => {
     setDrafts(batch.drafts)
@@ -77,6 +77,7 @@ export function DraftReview({
           draft={drafts[0]}
           enums={enums}
           customFields={customFields}
+        allFields={allFields}
           busy={busy}
           onChange={(patch) => edit(0, patch)}
           onCommit={() => void commit([drafts[0]])}
@@ -111,6 +112,7 @@ export function DraftReview({
         drafts={drafts}
         enums={enums}
         customFields={customFields}
+        allFields={allFields}
         selected={selected}
         onToggle={(i) =>
           setSelected((s) => {

@@ -1,4 +1,5 @@
 import type { DraftTask, EnumCatalog, FieldConfig } from '../api/types'
+import { UnmappedRule } from './UnmappedRule'
 
 /**
  * The review surface. Source-agnostic on purpose: phases 4 and 5 (Jira, email)
@@ -35,6 +36,8 @@ interface Props {
   enums: EnumCatalog
   /** User-configured dropdowns from the Config screen; one column each. */
   customFields?: FieldConfig[]
+  /** Every configured field, so unmapped values can offer their options. */
+  allFields?: FieldConfig[]
   selected: Set<number>
   onToggle: (index: number) => void
   onToggleAll: (checked: boolean) => void
@@ -45,6 +48,7 @@ export function ReviewTable({
   drafts,
   enums,
   customFields = [],
+  allFields = [],
   selected,
   onToggle,
   onToggleAll,
@@ -106,6 +110,15 @@ export function ReviewTable({
                     onChange={(e) => onChange(i, { summary: e.target.value })}
                   />
                   <RowNotes draft={draft} issues={issues} />
+                  {draft.unmapped?.map((u, k) => (
+                    <UnmappedRule
+                      key={`${u.field_key}-${k}`}
+                      draft={draft}
+                      unmapped={u}
+                      fields={allFields}
+                      onApply={(patch) => onChange(i, patch)}
+                    />
+                  ))}
                 </td>
                 <td>
                   <input

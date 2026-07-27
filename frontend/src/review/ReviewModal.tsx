@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { DraftTask, EnumCatalog, FieldConfig } from '../api/types'
 import { validateDraft } from './ReviewTable'
+import { UnmappedRule } from './UnmappedRule'
 
 /**
  * Single-item review. Used when a source produces exactly one draft — an
@@ -13,6 +14,7 @@ export function ReviewModal({
   draft,
   enums,
   customFields = [],
+  allFields = [],
   busy,
   onChange,
   onCommit,
@@ -22,6 +24,8 @@ export function ReviewModal({
   enums: EnumCatalog
   /** User-configured dropdowns from the Config screen. */
   customFields?: FieldConfig[]
+  /** Every configured field, so unmapped values can offer their options. */
+  allFields?: FieldConfig[]
   busy: boolean
   onChange: (patch: Partial<DraftTask>) => void
   onCommit: () => void
@@ -46,6 +50,20 @@ export function ReviewModal({
             ✕
           </button>
         </div>
+
+        {draft.unmapped?.length > 0 && (
+          <div className="unmapped-block">
+            {draft.unmapped.map((u, k) => (
+              <UnmappedRule
+                key={`${u.field_key}-${k}`}
+                draft={draft}
+                unmapped={u}
+                fields={allFields}
+                onApply={onChange}
+              />
+            ))}
+          </div>
+        )}
 
         {(draft.warnings.length > 0 || issues.length > 0) && (
           <ul className="row-notes stacked">

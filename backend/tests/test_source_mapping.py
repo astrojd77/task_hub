@@ -10,12 +10,16 @@ from __future__ import annotations
 import json
 from datetime import date
 
+import pytest
+
 from app.providers.base import UploadedFile
 from app.providers.sources.csv_source import CsvSource
 from app.providers.sources.email_source import EmailSource
 from app.providers.sources.jira_source import JiraSource
 from app.services.source_mapping import (
     MAPPING_CONFIG_KEY,
+    SourceMappingError,
+    add_value_rule,
     resolve,
     set_mapping,
     translate_enum,
@@ -358,5 +362,106 @@ def test_mapping_for_an_unknown_source_is_404(client):
     res = client.put(
         "/api/config/mappings",
         json={"source_provider": "telepathy", "mappings": {}},
+    )
+    assert res.status_code == 404
+
+
+# -- teaching a value from the review screen -----------------------------
+
+
+def test_an_unmapped_value_is_reported_structurally_not_just_as_prose(db):
+    """The review screen needs the field and the raw value to offer a fix."""
+    src = CsvSource()
+    config = with_mapping(db, "csv", {"file": UploadedFile("t.csv", CSV.encode())})
+    set_mapping(db, "csv", "impact_size", "Blast")
+    config = with_mapping(db, "csv", {"file": UploadedFile("t.csv", CSV.encode())})
+
+    draft = src.to_draft(src.fetch(config)[0])
+    unmapped = {u.field_key: u.native_value for u in draft.unmapped}
+
+    assert unmapped["impact_size"] == "Massive"
+    assert any("not on the scale" in w for w in draft.warnings)
+
+
+def test_a_value_the_adapter_already_knows_is_not_reported(db):
+    """Only genuinely unmappable values should ask for attention."""
+    src = CsvSource()
+    set_mapping(db, "csv", "criticality", "Sev")
+    config = with_mapping(db, "csv", {"file": UploadedFile("t.csv", CSV.encode())})
+
+    draft = src.to_draft(src.fetch(config)[0])
+    assert all(u.field_key != "criticality" for u in draft.unmapped)  # "Sev 1" is a builtin alias
+
+
+def test_adding_a_rule_merges_rather_than_replacing(db):
+    """Teaching a value must not wipe the input column or the other rules."""
+    set_mapping(db, "csv", "impact_size", "Blast", {"tiny": "xs"})
+    add_value_rule(db, "csv", "impact_size", "Massive", "xl")
+
+    mapping = resolve(db, "csv")
+    assert mapping.input_for("impact_size") == "Blast"
+    assert mapping.translate("impact_size", "tiny") == ("xs", True)
+    assert mapping.translate("impact_size", "Massive") == ("xl", True)
+
+
+def test_a_rule_can_be_added_for_a_field_with_no_mapping_yet(db):
+    add_value_rule(db, "csv", "status", "Doing", "in_progress")
+
+    assert resolve(db, "csv").translate("status", "doing") == ("in_progress", True)
+
+
+def test_a_blank_rule_is_rejected(db):
+    with pytest.raises(SourceMappingError):
+        add_value_rule(db, "csv", "status", "  ", "in_progress")
+
+
+def test_teaching_a_value_makes_the_next_import_clean(client):
+    """The whole point: answer once, and it stops asking."""
+    files = {"file": ("t.csv", CSV.encode(), "text/csv")}
+    client.put(
+        "/api/config/mappings",
+        json={
+            "source_provider": "csv",
+            "mappings": {
+                "summary": {"source_expr": "Headline"},
+                "impact_size": {"source_expr": "Blast"},
+            },
+        },
+    )
+
+    first = client.post("/api/sources/csv/drafts", files=files, data={"config": "{}"}).json()[
+        "drafts"
+    ][0]
+    assert [u["native_value"] for u in first["unmapped"]] == ["Massive"]
+
+    res = client.post(
+        "/api/config/mappings/rule",
+        json={
+            "source_provider": "csv",
+            "field_key": "impact_size",
+            "native_value": "Massive",
+            "value": "xl",
+        },
+    )
+    assert res.status_code == 200
+
+    second = client.post("/api/sources/csv/drafts", files=files, data={"config": "{}"}).json()[
+        "drafts"
+    ][0]
+    assert second["unmapped"] == []
+    assert second["impact_size"] == "xl"
+    # And the input column it was configured with survived the merge.
+    assert res.json()["source_expr"] == "Blast"
+
+
+def test_a_rule_for_an_unknown_source_is_404(client):
+    res = client.post(
+        "/api/config/mappings/rule",
+        json={
+            "source_provider": "telepathy",
+            "field_key": "status",
+            "native_value": "x",
+            "value": "todo",
+        },
     )
     assert res.status_code == 404
